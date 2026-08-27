@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "757925016192",
+    "project_id": "inventaris-updl",
+    "storage_bucket": "inventaris-updl.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:757925016192:android:649e0588423145ad516c65",
+        "android_client_info": {
+          "package_name": "com.example.inventaris_updl"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDOehtSKYnmpF3NcehNN24T05lwtlaS9S4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
