@@ -19,6 +19,14 @@ dependencies:
   excel: ^4.0.6
   path_provider: ^2.1.6
   open_file: ^4.0.0
+  image_picker: ^1.2.3
+  http: ^1.6.0
+  geolocator: ^14.0.3
+  geocoding: ^5.0.0
+  firebase_storage: ^12.4.10
+  csv: ^6.0.0
+  share_plus: ^13.3.0
+  file_saver: ^0.4.0
 
 dev_dependencies:
   flutter_test:
