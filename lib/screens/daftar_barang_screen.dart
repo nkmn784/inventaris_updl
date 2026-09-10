@@ -18,8 +18,8 @@ class DaftarBarangScreen extends StatefulWidget {
 
 class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
   String _searchQuery = '';
+  bool _isExporting = false;
 
-  // Helper untuk nama bulan Indonesia
   String _namaBulan(int bulan) {
     const listBulan = [
       'Januari',
@@ -38,7 +38,28 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
     return listBulan[bulan - 1];
   }
 
-  // Helper untuk mengambil status item P3K dari Map / Doc
+  // Helper untuk format tanggal terakhir di-edit
+  String _formatTanggalEdit(Map<String, dynamic> data) {
+    dynamic val =
+        data['updated_at'] ??
+        data['tanggal_edit'] ??
+        data['terakhir_diubah'] ??
+        data['updatedAt'];
+
+    if (val == null) return '';
+
+    if (val is Timestamp) {
+      DateTime dt = val.toDate();
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    } else if (val is String && val.trim().isNotEmpty) {
+      if (val.contains('T')) {
+        return val.split('T')[0];
+      }
+      return val;
+    }
+    return '';
+  }
+
   String _getItemValue(
     Map<String, dynamic> docData,
     Map<String, dynamic> checklistMap,
@@ -65,13 +86,11 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
         for (var entry in checklistMap.entries) {
           String cleanKey = entry.key
               .toLowerCase()
-              .replaceAll('_', ' ')
-              .replaceAll('-', ' ')
+              .replaceAll(RegExp(r'[_-]'), ' ')
               .trim();
           String cleanAlias = alias
               .toLowerCase()
-              .replaceAll('_', ' ')
-              .replaceAll('-', ' ')
+              .replaceAll(RegExp(r'[_-]'), ' ')
               .trim();
 
           if (cleanKey == cleanAlias) {
@@ -82,22 +101,36 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
         }
       }
     }
-
     return defaultValue;
   }
 
   // ==========================================
-  // FUNGSI LANGSUNG UNDUH LAPORAN EXCEL
+  // EXPORT EXCEL
   // ==========================================
   Future<void> _unduhLaporanExcel() async {
+    if (_isExporting) return;
+
+    setState(() => _isExporting = true);
+
     try {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Menyiapkan & mengunduh laporan ${widget.namaKategori}...',
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text('Menyiapkan laporan ${widget.namaKategori}...'),
+            ],
           ),
-          duration: const Duration(seconds: 2),
+          duration: const Duration(seconds: 3),
         ),
       );
 
@@ -110,6 +143,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Tidak ada data untuk diekspor.')),
         );
+        setState(() => _isExporting = false);
         return;
       }
 
@@ -119,18 +153,31 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
       excel.rename(defaultSheet, sheetName);
       Sheet sheetObject = excel[sheetName];
 
+      CellStyle headerStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+      );
+      CellStyle centerAlign = CellStyle(
+        horizontalAlign: HorizontalAlign.Center,
+      );
+
       DateTime now = DateTime.now();
       String bulanTahun = '${_namaBulan(now.month).toUpperCase()} ${now.year}';
       String tanggalHariIni =
           '${now.day.toString().padLeft(2, '0')} ${_namaBulan(now.month)} ${now.year}';
 
-      if (widget.namaKategori == 'APAR') {
+      String kategoriUpper = widget.namaKategori.toUpperCase();
+
+      // EXCEL APAR
+      if (kategoriUpper.contains('APAR')) {
         sheetObject.cell(CellIndex.indexByString('C1')).value = TextCellValue(
           'ALAT PEMADAM API RINGAN (APAR)',
         );
+        sheetObject.cell(CellIndex.indexByString('C1')).cellStyle = headerStyle;
         sheetObject.cell(CellIndex.indexByString('C2')).value = TextCellValue(
           'BULAN / TAHUN : $bulanTahun',
         );
+
         sheetObject.cell(CellIndex.indexByString('A4')).value = TextCellValue(
           'Pemeriksa',
         );
@@ -162,11 +209,11 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
         ];
 
         for (int i = 0; i < headers.length; i++) {
-          sheetObject
-              .cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 6))
-              .value = TextCellValue(
-            headers[i],
+          var cell = sheetObject.cell(
+            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 6),
           );
+          cell.value = TextCellValue(headers[i]);
+          cell.cellStyle = headerStyle;
         }
 
         int rowIndex = 7;
@@ -215,14 +262,16 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
               rowData[i],
             );
           }
-
           rowIndex++;
           nomorUrut++;
         }
-      } else if (widget.namaKategori == 'P3K') {
+
+        // EXCEL P3K
+      } else if (kategoriUpper.contains('P3K')) {
         sheetObject.cell(CellIndex.indexByString('B1')).value = TextCellValue(
           'IDENTIFIKASI KEBUTUHAN KOTAK P3K',
         );
+        sheetObject.cell(CellIndex.indexByString('B1')).cellStyle = headerStyle;
         sheetObject.cell(CellIndex.indexByString('B2')).value = TextCellValue(
           'DI PT PLN (PERSERO) UPDL PANDAAN',
         );
@@ -230,17 +279,6 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
           'BULAN $bulanTahun',
         );
 
-        sheetObject.cell(CellIndex.indexByString('E1')).value = TextCellValue(
-          'A : 25 orang',
-        );
-        sheetObject.cell(CellIndex.indexByString('E2')).value = TextCellValue(
-          'B : 50 orang',
-        );
-        sheetObject.cell(CellIndex.indexByString('E3')).value = TextCellValue(
-          'C : 100 orang',
-        );
-
-        // Header disatukan seluruhnya dalam 1 baris (rowIndex: 4)
         List<String> headersP3K = [
           'No',
           'Gedung/Ruang',
@@ -275,11 +313,11 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
         ];
 
         for (int i = 0; i < headersP3K.length; i++) {
-          sheetObject
-              .cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 4))
-              .value = TextCellValue(
-            headersP3K[i],
+          var cell = sheetObject.cell(
+            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 4),
           );
+          cell.value = TextCellValue(headersP3K[i]);
+          cell.cellStyle = headerStyle;
         }
 
         List<List<String>> itemAliases = [
@@ -307,7 +345,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
           ['daftar_isi_kotak', 'DAFTAR ISI KOTAK P3K'],
         ];
 
-        int rowIndex = 5; // Baris data dimulai tepat pada rowIndex 5
+        int rowIndex = 5;
         int nomorUrut = 1;
 
         for (var doc in snapshot.docs) {
@@ -327,15 +365,14 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
           ];
 
           for (int i = 0; i < itemAliases.length; i++) {
-            String itemVal = _getItemValue(data, checklistMap, itemAliases[i]);
-            rowData.add(itemVal);
+            rowData.add(_getItemValue(data, checklistMap, itemAliases[i]));
           }
 
-          String kekurangan =
-              data['kekurangan']?.toString() ??
-              data['keterangan']?.toString() ??
-              '-';
-          rowData.add(kekurangan);
+          rowData.add(
+            data['kekurangan']?.toString() ??
+                data['keterangan']?.toString() ??
+                '-',
+          );
           rowData.add(data['latitude']?.toString() ?? '-');
           rowData.add(data['longitude']?.toString() ?? '-');
 
@@ -351,7 +388,249 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
               rowData[i],
             );
           }
+          rowIndex++;
+          nomorUrut++;
+        }
 
+        // EXCEL APD
+      } else if (kategoriUpper.contains('APD')) {
+        sheetObject.merge(
+          CellIndex.indexByString('A1'),
+          CellIndex.indexByString('G1'),
+          customValue: TextCellValue('INVENTARIS PERALATAN K3 (APD)'),
+        );
+        sheetObject.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
+
+        List<String> headersAPD = [
+          'No.',
+          'Peralatan',
+          'Jumlah',
+          'Masa Pakai',
+          'Tanggal Kadaluwarsa',
+          'Kondisi',
+          'Pembelian',
+        ];
+
+        for (int i = 0; i < headersAPD.length; i++) {
+          var cell = sheetObject.cell(
+            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 2),
+          );
+          cell.value = TextCellValue(headersAPD[i]);
+          cell.cellStyle = headerStyle;
+        }
+
+        int rowIndex = 3;
+        int nomorUrut = 1;
+
+        String formatData(dynamic data) {
+          if (data == null || data.toString().trim().isEmpty) return '-';
+          return data.toString();
+        }
+
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          List<String> rowData = [
+            nomorUrut.toString(),
+            formatData(
+              data['peralatan'] ??
+                  data['nama_apd'] ??
+                  data['nama_barang'] ??
+                  data['nama'],
+            ),
+            formatData(data['jumlah'] ?? data['stok'] ?? data['qty']),
+            formatData(data['masa_pakai']),
+            formatData(data['tanggal_kadaluarsa']),
+            formatData(data['kondisi']),
+            formatData(data['pembelian']),
+          ];
+
+          for (int i = 0; i < rowData.length; i++) {
+            var cell = sheetObject.cell(
+              CellIndex.indexByColumnRow(columnIndex: i, rowIndex: rowIndex),
+            );
+            cell.value = TextCellValue(rowData[i]);
+
+            if (i != 1) {
+              cell.cellStyle = centerAlign;
+            }
+          }
+          rowIndex++;
+          nomorUrut++;
+        }
+
+        rowIndex += 2;
+        String tanggalTTD = '${now.day} ${_namaBulan(now.month)} ${now.year}';
+
+        sheetObject.merge(
+          CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex),
+          CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex),
+          customValue: TextCellValue(tanggalTTD),
+        );
+        sheetObject
+                .cell(
+                  CellIndex.indexByColumnRow(
+                    columnIndex: 5,
+                    rowIndex: rowIndex,
+                  ),
+                )
+                .cellStyle =
+            centerAlign;
+
+        rowIndex++;
+        sheetObject.merge(
+          CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex),
+          CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex),
+          customValue: TextCellValue('TL K3L & KAM'),
+        );
+        sheetObject
+                .cell(
+                  CellIndex.indexByColumnRow(
+                    columnIndex: 5,
+                    rowIndex: rowIndex,
+                  ),
+                )
+                .cellStyle =
+            centerAlign;
+
+        rowIndex += 4;
+        sheetObject.merge(
+          CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex),
+          CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex),
+          customValue: TextCellValue('ANUGRA PUTRA PERMANA'),
+        );
+        sheetObject
+                .cell(
+                  CellIndex.indexByColumnRow(
+                    columnIndex: 5,
+                    rowIndex: rowIndex,
+                  ),
+                )
+                .cellStyle =
+            centerAlign;
+
+        // EXCEL ATK
+      } else if (kategoriUpper.contains('ATK')) {
+        sheetObject.merge(
+          CellIndex.indexByString('A1'),
+          CellIndex.indexByString('G1'),
+          customValue: TextCellValue(
+            'LAPORAN INVENTARIS ALAT TULIS KANTOR (ATK)',
+          ),
+        );
+        sheetObject.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
+
+        sheetObject.cell(CellIndex.indexByString('A2')).value = TextCellValue(
+          'BULAN / TAHUN : $bulanTahun',
+        );
+
+        List<String> headersATK = [
+          'No.',
+          'Nama Barang',
+          'Jumlah',
+          'Satuan',
+          'Lokasi / Ruang',
+          'Kondisi',
+          'Keterangan',
+        ];
+
+        for (int i = 0; i < headersATK.length; i++) {
+          var cell = sheetObject.cell(
+            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3),
+          );
+          cell.value = TextCellValue(headersATK[i]);
+          cell.cellStyle = headerStyle;
+        }
+
+        int rowIndex = 4;
+        int nomorUrut = 1;
+
+        String formatData(dynamic data) {
+          if (data == null || data.toString().trim().isEmpty) return '-';
+          return data.toString();
+        }
+
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          List<String> rowData = [
+            nomorUrut.toString(),
+            formatData(data['nama_barang'] ?? data['nama_atk'] ?? data['nama']),
+            formatData(data['jumlah'] ?? data['stok'] ?? data['qty']),
+            formatData(data['satuan']),
+            formatData(data['lokasi'] ?? data['gedung_ruang']),
+            formatData(data['kondisi']),
+            formatData(data['keterangan']),
+          ];
+
+          for (int i = 0; i < rowData.length; i++) {
+            var cell = sheetObject.cell(
+              CellIndex.indexByColumnRow(columnIndex: i, rowIndex: rowIndex),
+            );
+            cell.value = TextCellValue(rowData[i]);
+
+            if (i != 1) {
+              cell.cellStyle = centerAlign;
+            }
+          }
+          rowIndex++;
+          nomorUrut++;
+        }
+
+        // KATEGORI LAINNYA
+      } else {
+        sheetObject.cell(CellIndex.indexByString('A1')).value = TextCellValue(
+          'LAPORAN DATA ${widget.namaKategori.toUpperCase()}',
+        );
+        sheetObject.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
+        sheetObject.cell(CellIndex.indexByString('A2')).value = TextCellValue(
+          'BULAN / TAHUN : $bulanTahun',
+        );
+
+        List<String> headersLain = [
+          'NO',
+          'NAMA BARANG',
+          'LOKASI',
+          'KETERANGAN',
+          'LATITUDE',
+          'LONGITUDE',
+        ];
+
+        for (int i = 0; i < headersLain.length; i++) {
+          var cell = sheetObject.cell(
+            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3),
+          );
+          cell.value = TextCellValue(headersLain[i]);
+          cell.cellStyle = headerStyle;
+        }
+
+        int rowIndex = 4;
+        int nomorUrut = 1;
+
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          List<String> rowData = [
+            nomorUrut.toString(),
+            data['nama_barang']?.toString() ??
+                data['nama']?.toString() ??
+                data['nama_alat']?.toString() ??
+                '-',
+            data['lokasi']?.toString() ?? '-',
+            data['keterangan']?.toString() ?? '-',
+            data['latitude']?.toString() ?? '-',
+            data['longitude']?.toString() ?? '-',
+          ];
+
+          for (int i = 0; i < rowData.length; i++) {
+            sheetObject
+                .cell(
+                  CellIndex.indexByColumnRow(
+                    columnIndex: i,
+                    rowIndex: rowIndex,
+                  ),
+                )
+                .value = TextCellValue(
+              rowData[i],
+            );
+          }
           rowIndex++;
           nomorUrut++;
         }
@@ -360,22 +639,19 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
       var fileBytes = excel.encode();
       if (fileBytes == null) throw Exception("Gagal membuat file Excel");
 
-      final Uint8List uint8List = Uint8List.fromList(fileBytes);
       final String namaFile =
           'Laporan_${widget.namaKategori}_${DateTime.now().millisecondsSinceEpoch}';
 
       await FileSaver.instance.saveFile(
         name: '$namaFile.xlsx',
-        bytes: uint8List,
+        bytes: Uint8List.fromList(fileBytes),
         mimeType: MimeType.microsoftExcel,
       );
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Laporan ${widget.namaKategori} berhasil diunduh ke perangkat!',
-          ),
+          content: Text('Laporan ${widget.namaKategori} berhasil diunduh!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -387,6 +663,8 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
           backgroundColor: Colors.red,
         ),
       );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
     }
   }
 
@@ -403,11 +681,20 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.download_rounded, color: Colors.blue),
-            tooltip: 'Unduh Laporan Excel',
-            onPressed: () => _unduhLaporanExcel(),
-          ),
+          _isExporting
+              ? const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.download_rounded, color: Colors.blue),
+                  tooltip: 'Unduh Laporan Excel',
+                  onPressed: _unduhLaporanExcel,
+                ),
         ],
       ),
       body: Column(
@@ -422,8 +709,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                 });
               },
               decoration: InputDecoration(
-                hintText:
-                    'Cari ${widget.namaKategori.toLowerCase()} / koordinat...',
+                hintText: 'Cari ${widget.namaKategori.toLowerCase()}...',
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
                 filled: true,
                 fillColor: Colors.grey.shade100,
@@ -436,7 +722,6 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
             ),
           ),
           const SizedBox(height: 8),
-
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirestoreService().getBarangByKategori(
@@ -464,23 +749,37 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                           color: Colors.grey.shade400,
                         ),
                         const SizedBox(height: 16),
-                        Text('Belum ada data ${widget.namaKategori}'),
+                        Text(
+                          'Belum ada data ${widget.namaKategori}',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
                       ],
                     ),
                   );
                 }
 
                 final dokumen = snapshot.data!.docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final kategoriData = data['kategori'] ?? widget.namaKategori;
+                  final data = doc.data() as Map<String, dynamic>? ?? {};
+                  final kategoriData = (data['kategori'] ?? widget.namaKategori)
+                      .toString()
+                      .toUpperCase();
 
                   String searchString = '';
-                  if (kategoriData == 'APAR') {
+                  if (kategoriData.contains('APAR')) {
                     searchString =
-                        '${data['nama_alat']} ${data['no_apar']} ${data['lokasi']} ${data['latitude']} ${data['longitude']}';
-                  } else if (kategoriData == 'P3K') {
+                        '${data['nama_alat'] ?? ''} ${data['no_apar'] ?? ''} ${data['lokasi'] ?? ''}';
+                  } else if (kategoriData.contains('P3K')) {
                     searchString =
-                        '${data['gedung_ruang']} ${data['lokasi']} ${data['latitude']} ${data['longitude']}';
+                        '${data['gedung_ruang'] ?? ''} ${data['lokasi'] ?? ''}';
+                  } else if (kategoriData.contains('APD')) {
+                    searchString =
+                        '${data['peralatan'] ?? data['nama_apd'] ?? data['nama_barang'] ?? ''} ${data['kondisi'] ?? ''} ${data['pembelian'] ?? ''}';
+                  } else if (kategoriData.contains('ATK')) {
+                    searchString =
+                        '${data['nama_barang'] ?? data['nama_atk'] ?? data['nama'] ?? ''} ${data['lokasi'] ?? data['gedung_ruang'] ?? ''} ${data['keterangan'] ?? ''}';
+                  } else {
+                    searchString =
+                        '${data['nama_barang'] ?? data['nama'] ?? data['nama_alat'] ?? ''} ${data['lokasi'] ?? ''}';
                   }
 
                   return searchString.toLowerCase().contains(_searchQuery);
@@ -502,7 +801,9 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                     final data = dokumen[index].data() as Map<String, dynamic>;
                     final docId = dokumen[index].id;
                     final kategoriData =
-                        data['kategori'] ?? widget.namaKategori;
+                        (data['kategori'] ?? widget.namaKategori)
+                            .toString()
+                            .toUpperCase();
 
                     String judulUtama = '';
                     String infoHighlight = '';
@@ -510,32 +811,147 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                     bool isWarning = false;
                     String? imageUrl = data['foto_url'];
 
-                    String lat = data['latitude']?.toString() ?? '';
-                    String lng = data['longitude']?.toString() ?? '';
-                    String infoKoordinat = (lat.isNotEmpty && lng.isNotEmpty)
-                        ? ' 📍 ($lat, $lng)'
+                    // Format Tanggal Edit Terakhir
+                    String tglEdit = _formatTanggalEdit(data);
+                    String labelTanggalEdit = tglEdit.isNotEmpty
+                        ? 'Diubah: $tglEdit'
                         : '';
 
-                    if (kategoriData == 'APAR') {
-                      judulUtama =
-                          data['nama_alat'] != null &&
-                              data['nama_alat'].toString().isNotEmpty
-                          ? data['nama_alat']
-                          : 'APAR No. ${data['no_apar'] ?? '-'}';
+                    // ==========================================
+                    // APAR
+                    // ==========================================
+                    if (kategoriData.contains('APAR')) {
+                      // DIUBAH: Menampilkan No APAR sebagai judul utama
+                      judulUtama = 'APAR No. ${data['no_apar'] ?? '-'}';
+                      // DIUBAH: Menampilkan berat sebagai highlight
                       infoHighlight = '${data['berat'] ?? '-'} Kg';
-                      infoSekunder = '${data['lokasi'] ?? '-'}$infoKoordinat';
+                      // DIUBAH: Menampilkan lokasi di bawah judul/highlight
+                      infoSekunder = 'Lokasi: ${data['lokasi'] ?? '-'}';
 
                       bool tekananAman = data['checklist_tekanan'] ?? true;
                       bool pinAman = data['checklist_safety_pin'] ?? true;
                       isWarning = (!tekananAman || !pinAman);
-                    } else if (kategoriData == 'P3K') {
+
+                      // ==========================================
+                      // P3K
+                      // ==========================================
+                    } else if (kategoriData.contains('P3K')) {
                       judulUtama =
                           data['gedung_ruang'] ??
                           data['lokasi'] ??
                           'Tanpa Nama Ruangan';
                       infoHighlight = '${data['kapasitas'] ?? 0} Org';
-                      infoSekunder =
-                          'Ext: ${data['existing'] ?? '-'}$infoKoordinat';
+                      infoSekunder = labelTanggalEdit.isNotEmpty
+                          ? labelTanggalEdit
+                          : 'Ext: ${data['existing'] ?? '-'}';
+                      isWarning = false;
+
+                      // ==========================================
+                      // APD (ALAT PELINDUNG DIRI)
+                      // ==========================================
+                    } else if (kategoriData.contains('APD')) {
+                      judulUtama =
+                          data['peralatan'] ??
+                          data['nama_apd'] ??
+                          data['nama_barang'] ??
+                          'APD Tanpa Nama';
+
+                      dynamic rawJml =
+                          data['jumlah'] ?? data['stok'] ?? data['qty'];
+                      infoHighlight = 'Jml: ${rawJml ?? 0}';
+
+                      if (labelTanggalEdit.isNotEmpty) {
+                        infoSekunder = labelTanggalEdit;
+                      } else if (data['pembelian'] != null &&
+                          data['pembelian'].toString().isNotEmpty) {
+                        infoSekunder = 'Pembelian: ${data['pembelian']}';
+                      } else {
+                        infoSekunder = 'Kondisi: ${data['kondisi'] ?? 'Baik'}';
+                      }
+
+                      isWarning =
+                          (data['kondisi']?.toString().toLowerCase().contains(
+                            'rusak',
+                          ) ??
+                          false);
+
+                      // ==========================================
+                      // ATK (ALAT TULIS KANTOR)
+                      // ==========================================
+                    } else if (kategoriData.contains('ATK')) {
+                      judulUtama =
+                          data['nama_barang'] ??
+                          data['nama_atk'] ??
+                          data['nama'] ??
+                          'ATK Tanpa Nama';
+
+                      dynamic rawJml =
+                          data['sisa_jumlah'] ??
+                          data['stok_sekarang'] ??
+                          data['jumlah'] ??
+                          data['stok'] ??
+                          data['qty'] ??
+                          0;
+
+                      String satuan =
+                          (data['satuan'] != null &&
+                              data['satuan'].toString().trim().isNotEmpty)
+                          ? ' ${data['satuan']}'
+                          : '';
+
+                      infoHighlight = 'Jml: $rawJml$satuan';
+
+                      String tglTransaksi = '';
+                      if (data['tanggal_transaksi'] != null) {
+                        DateTime? dt = DateTime.tryParse(
+                          data['tanggal_transaksi'].toString(),
+                        );
+                        if (dt != null) {
+                          tglTransaksi =
+                              '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+                        }
+                      }
+
+                      String infoTanggal = tglTransaksi.isNotEmpty
+                          ? 'Tgl Update: $tglTransaksi'
+                          : labelTanggalEdit;
+
+                      if (infoTanggal.isNotEmpty) {
+                        infoSekunder = infoTanggal;
+                      } else if (data['lokasi'] != null &&
+                          data['lokasi'].toString().isNotEmpty) {
+                        infoSekunder = 'Lokasi: ${data['lokasi']}';
+                      } else {
+                        infoSekunder =
+                            'Keterangan: ${data['keterangan'] ?? '-'}';
+                      }
+
+                      isWarning =
+                          (rawJml.toString() == '0' ||
+                          (data['kondisi']?.toString().toLowerCase().contains(
+                                'habis',
+                              ) ??
+                              false));
+
+                      // ==========================================
+                      // KATEGORI LAIN
+                      // ==========================================
+                    } else {
+                      judulUtama =
+                          data['nama_barang'] ??
+                          data['nama'] ??
+                          data['nama_alat'] ??
+                          'Barang Tanpa Nama';
+
+                      dynamic rawJml =
+                          data['jumlah'] ?? data['stok'] ?? data['qty'];
+                      infoHighlight = rawJml != null
+                          ? 'Jml: $rawJml'
+                          : (data['kondisi']?.toString() ?? 'Aktif');
+
+                      infoSekunder = labelTanggalEdit.isNotEmpty
+                          ? labelTanggalEdit
+                          : '${data['lokasi'] ?? '-'}';
                       isWarning = false;
                     }
 
@@ -548,27 +964,35 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(12),
-                        leading: Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
+                        leading: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            width: 50,
+                            height: 50,
                             color: Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(8),
-                            image: imageUrl != null && imageUrl.isNotEmpty
-                                ? DecorationImage(
-                                    image: NetworkImage(imageUrl),
+                            child: imageUrl != null && imageUrl.isNotEmpty
+                                ? Image.network(
+                                    imageUrl,
                                     fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (context, error, stackTrace) => Icon(
+                                          Icons.broken_image,
+                                          color: Colors.grey.shade400,
+                                        ),
                                   )
-                                : null,
+                                : Icon(
+                                    kategoriData.contains('APAR')
+                                        ? Icons.fire_extinguisher
+                                        : kategoriData.contains('P3K')
+                                        ? Icons.medical_services
+                                        : kategoriData.contains('APD')
+                                        ? Icons.health_and_safety
+                                        : kategoriData.contains('ATK')
+                                        ? Icons.edit_note
+                                        : Icons.inventory_2,
+                                    color: Colors.grey,
+                                  ),
                           ),
-                          child: imageUrl == null || imageUrl.isEmpty
-                              ? Icon(
-                                  kategoriData == 'APAR'
-                                      ? Icons.fire_extinguisher
-                                      : Icons.medical_services,
-                                  color: Colors.grey,
-                                )
-                              : null,
                         ),
                         title: Text(
                           judulUtama,

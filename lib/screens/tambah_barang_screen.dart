@@ -15,7 +15,7 @@ class TambahBarangScreen extends StatefulWidget {
 
 class _TambahBarangScreenState extends State<TambahBarangScreen> {
   String _kategoriTerpilih = 'APAR';
-  final List<String> _listKategori = ['APAR', 'P3K'];
+  final List<String> _listKategori = ['APAR', 'P3K', 'APD', 'ATK'];
   bool _isLoading = false;
 
   // ==========================================
@@ -35,7 +35,7 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
   bool _kondisiSelang = true;
 
   // ==========================================
-  // FORM FIELD P3K (SESUAI EXCEL)
+  // FORM FIELD P3K
   // ==========================================
   final _gedungRuangCtrl = TextEditingController();
   final _kapasitasCtrl = TextEditingController();
@@ -71,6 +71,32 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
     'Buku Catatan': true,
     'Daftar Isi Kotak P3K': true,
   };
+
+  // ==========================================
+  // FORM FIELD APD (PERALATAN K3)
+  // ==========================================
+  final _peralatanApdCtrl = TextEditingController();
+  final _jumlahApdCtrl = TextEditingController();
+  final _masaPakaiApdCtrl = TextEditingController();
+  final _tglKadaluarsaApdCtrl = TextEditingController();
+  final _kondisiApdCtrl = TextEditingController(text: 'Baik');
+  final _pembelianApdCtrl = TextEditingController();
+
+  // ==========================================
+  // FORM FIELD ATK
+  // ==========================================
+  final _namaAtkCtrl = TextEditingController();
+  final _jumlahAtkCtrl = TextEditingController();
+  final _catatanAtkCtrl = TextEditingController(); // Untuk Catatan
+  String _satuanAtkTerpilih = 'Pcs';
+  final List<String> _listSatuanAtk = [
+    'Pcs',
+    'Rim',
+    'Pak',
+    'Box',
+    'Lusin',
+    'Buah',
+  ];
 
   // ==========================================
   // LOKASI GPS & FOTO
@@ -125,6 +151,33 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
   }
 
   @override
+  void dispose() {
+    // Controller APAR & P3K
+    _namaAlatCtrl.dispose();
+    _lokasiCtrl.dispose();
+    _noAparCtrl.dispose();
+    _beratCtrl.dispose();
+    _keteranganAparCtrl.dispose();
+    _gedungRuangCtrl.dispose();
+    _kapasitasCtrl.dispose();
+    _keteranganP3kCtrl.dispose();
+
+    // Controller APD
+    _peralatanApdCtrl.dispose();
+    _jumlahApdCtrl.dispose();
+    _masaPakaiApdCtrl.dispose();
+    _tglKadaluarsaApdCtrl.dispose();
+    _kondisiApdCtrl.dispose();
+    _pembelianApdCtrl.dispose();
+
+    // Controller ATK
+    _namaAtkCtrl.dispose();
+    _jumlahAtkCtrl.dispose();
+    _catatanAtkCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Tambah Data Inspeksi')),
@@ -156,7 +209,7 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
                   onChanged: (val) {
                     setState(() {
                       _kategoriTerpilih = val!;
-                      _foto = null; // Reset foto
+                      _foto = null; // Reset foto saat ganti kategori
                     });
                   },
                 ),
@@ -169,10 +222,18 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
             // Tampilkan form berdasarkan pilihan
             if (_kategoriTerpilih == 'APAR') _buildFormApar(),
             if (_kategoriTerpilih == 'P3K') _buildFormP3K(),
+            if (_kategoriTerpilih == 'APD') _buildFormApd(),
+            if (_kategoriTerpilih == 'ATK') _buildFormAtk(),
 
             const SizedBox(height: 24),
-            _buildFotoWidget(),
-            const SizedBox(height: 32),
+
+            // Sembunyikan Foto & Lokasi jika kategori adalah APD atau ATK
+            if (_kategoriTerpilih != 'APD' && _kategoriTerpilih != 'ATK') ...[
+              _buildFotoWidget(),
+              const SizedBox(height: 16),
+              _buildLocationButton(),
+              const SizedBox(height: 32),
+            ],
 
             SizedBox(
               width: double.infinity,
@@ -194,7 +255,149 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
   }
 
   // ==========================================
-  // WIDGET FORM APAR (LENGKAP SEPERTI AWAL)
+  // WIDGET FORM ATK
+  // ==========================================
+  Widget _buildFormAtk() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'DATA ALAT TULIS KANTOR (ATK)',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _namaAtkCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Nama Barang (Contoh: Kertas HVS, Bolpoin)',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              flex: 1,
+              child: TextField(
+                controller: _jumlahAtkCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Jumlah',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 1,
+              child: DropdownButtonFormField<String>(
+                value: _satuanAtkTerpilih,
+                decoration: const InputDecoration(
+                  labelText: 'Satuan',
+                  border: OutlineInputBorder(),
+                ),
+                items: _listSatuanAtk
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (val) => setState(() => _satuanAtkTerpilih = val!),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _catatanAtkCtrl,
+          maxLines: 2,
+          decoration: const InputDecoration(
+            labelText: 'Catatan',
+            border: OutlineInputBorder(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==========================================
+  // WIDGET FORM APD
+  // ==========================================
+  Widget _buildFormApd() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'DATA INVENTARIS PERALATAN K3 (APD)',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _peralatanApdCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Peralatan (Contoh: Helm Putih, Masker)',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _jumlahApdCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Jumlah (Contoh: 6, 2 Buah)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _masaPakaiApdCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Masa Pakai (Contoh: 4 th, Baru)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _tglKadaluarsaApdCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Tanggal Kadaluarsa (Contoh: Juli 2027, -)',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _kondisiApdCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Kondisi',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _pembelianApdCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Pembelian (Contoh: April 2024)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ==========================================
+  // WIDGET FORM APAR
   // ==========================================
   Widget _buildFormApar() {
     return Column(
@@ -290,14 +493,12 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
             border: OutlineInputBorder(),
           ),
         ),
-        const SizedBox(height: 16),
-        _buildLocationButton(),
       ],
     );
   }
 
   // ==========================================
-  // WIDGET FORM P3K (SESUAI EXCEL)
+  // WIDGET FORM P3K
   // ==========================================
   Widget _buildFormP3K() {
     return Column(
@@ -366,7 +567,6 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-
         ..._checklistP3k.keys.map((key) {
           return CheckboxListTile(
             dense: true,
@@ -375,7 +575,6 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
             onChanged: (val) => setState(() => _checklistP3k[key] = val!),
           );
         }),
-
         const SizedBox(height: 16),
         const Text(
           'TANGGAL KADALUARSA CAIRAN / OBAT P3K',
@@ -399,7 +598,6 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
           _expAlcohol,
           (d) => setState(() => _expAlcohol = d),
         ),
-
         const SizedBox(height: 16),
         TextField(
           controller: _keteranganP3kCtrl,
@@ -409,12 +607,13 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
             border: OutlineInputBorder(),
           ),
         ),
-        const SizedBox(height: 16),
-        _buildLocationButton(),
       ],
     );
   }
 
+  // ==========================================
+  // WIDGET HELPER
+  // ==========================================
   Widget _buildDateField(
     String label,
     DateTime? value,
@@ -507,11 +706,16 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
     );
   }
 
+  // ==========================================
+  // LOGIKA SIMPAN DATA
+  // ==========================================
   Future<void> _simpanData() async {
     setState(() => _isLoading = true);
     try {
       String? fotoUrl;
-      if (_foto != null) {
+      if (_foto != null &&
+          _kategoriTerpilih != 'APD' &&
+          _kategoriTerpilih != 'ATK') {
         final bytes = await _foto!.readAsBytes();
         fotoUrl = await CloudinaryService().uploadImageBytes(bytes);
       }
@@ -522,8 +726,7 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
         dataSimpan = {
           'kategori': 'P3K',
           'gedung_ruang': _gedungRuangCtrl.text,
-          'lokasi': _gedungRuangCtrl
-              .text, // Simpan sbg lokasi agar tampil di list home
+          'lokasi': _gedungRuangCtrl.text,
           'kapasitas': int.tryParse(_kapasitasCtrl.text) ?? 0,
           'existing': _existingP3k,
           'rekomendasi': _rekomendasiP3k,
@@ -535,7 +738,7 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
           'latitude': _latitude,
           'longitude': _longitude,
         };
-      } else {
+      } else if (_kategoriTerpilih == 'APAR') {
         dataSimpan = {
           'kategori': 'APAR',
           'nama_alat': _namaAlatCtrl.text,
@@ -551,6 +754,33 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
           'keterangan': _keteranganAparCtrl.text,
           'latitude': _latitude,
           'longitude': _longitude,
+        };
+      } else if (_kategoriTerpilih == 'APD') {
+        dataSimpan = {
+          'kategori': 'APD',
+          'peralatan': _peralatanApdCtrl.text,
+          'lokasi': '-',
+          'jumlah': _jumlahApdCtrl.text,
+          'masa_pakai': _masaPakaiApdCtrl.text,
+          'tanggal_kadaluarsa': _tglKadaluarsaApdCtrl.text,
+          'kondisi': _kondisiApdCtrl.text,
+          'pembelian': _pembelianApdCtrl.text,
+        };
+      } else if (_kategoriTerpilih == 'ATK') {
+        // DATA SIMPAN KHUSUS ATK
+        int jmlInput = int.tryParse(_jumlahAtkCtrl.text) ?? 0;
+        dataSimpan = {
+          'kategori': 'ATK',
+          'nama_barang': _namaAtkCtrl.text,
+          'lokasi': '-',
+          'jumlah': jmlInput,
+          'sisa_jumlah':
+              jmlInput, // Disamakan dengan kunci database sebelumnya agar match dengan edit
+          'satuan': _satuanAtkTerpilih, // Diambil dari pilihan Dropdown
+          'keterangan': _catatanAtkCtrl
+              .text, // Key database tetap keterangan, tapi label di UI adalah Catatan
+          'tanggal_transaksi': DateTime.now()
+              .toIso8601String(), // Agar tanggal update langsung muncul
         };
       }
 
