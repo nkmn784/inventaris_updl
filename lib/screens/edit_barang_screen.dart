@@ -70,7 +70,26 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
     'Buah',
   ];
   DateTime? _tanggalTransaksiAtk;
-  int _stokAwalAtk = 0; // Untuk menyimpan stok awal sebelum diedit
+  int _stokAwalAtk = 0;
+
+  // === VARIABEL AMENITIES ===
+  late TextEditingController _namaBarangAmenitiesCtrl;
+  late TextEditingController _masukAmenitiesCtrl;
+  late TextEditingController _keluarAmenitiesCtrl;
+  late TextEditingController _sisaJumlahAmenitiesCtrl;
+  late TextEditingController _catatanAmenitiesCtrl;
+  String _satuanAmenitiesTerpilih = 'Pcs';
+  final List<String> _listSatuanAmenities = [
+    'Pcs',
+    'Rim',
+    'Pak',
+    'Box',
+    'Lusin',
+    'Buah',
+    'Botol',
+  ];
+  DateTime? _tanggalTransaksiAmenities;
+  int _stokAwalAmenities = 0;
 
   // === UMUM ===
   bool _isLoading = false;
@@ -167,22 +186,19 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
         text: widget.dataBarang['pembelian'] ?? '',
       );
     } else if (_kategori == 'ATK') {
-      // INISIALISASI FORM ATK
       _namaBarangAtkCtrl = TextEditingController(
         text: widget.dataBarang['nama_barang'] ?? '',
       );
 
-      // Setup Satuan
       String satuanDb = widget.dataBarang['satuan'] ?? 'Pcs';
       if (!_listSatuanAtk.contains(satuanDb)) {
-        satuanDb = 'Pcs'; // Fallback jika datanya tidak ada di list
+        satuanDb = 'Pcs';
       }
       _satuanAtkTerpilih = satuanDb;
 
       _masukAtkCtrl = TextEditingController();
       _keluarAtkCtrl = TextEditingController();
 
-      // Mendapatkan stok saat ini dari database
       _stokAwalAtk =
           int.tryParse(widget.dataBarang['sisa_jumlah']?.toString() ?? '') ??
           int.tryParse(widget.dataBarang['jumlah']?.toString() ?? '') ??
@@ -202,7 +218,46 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           widget.dataBarang['tanggal_transaksi'],
         );
       } else {
-        _tanggalTransaksiAtk = DateTime.now(); // Default ke hari ini
+        _tanggalTransaksiAtk = DateTime.now();
+      }
+    } else if (_kategori == 'Amenities') {
+      // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities'
+      // INISIALISASI FORM AMENITIES
+      _namaBarangAmenitiesCtrl = TextEditingController(
+        text: widget.dataBarang['nama_barang'] ?? '',
+      );
+
+      String satuanDb = widget.dataBarang['satuan'] ?? 'Pcs';
+      if (!_listSatuanAmenities.contains(satuanDb)) {
+        satuanDb = 'Pcs';
+      }
+      _satuanAmenitiesTerpilih = satuanDb;
+
+      _masukAmenitiesCtrl = TextEditingController();
+      _keluarAmenitiesCtrl = TextEditingController();
+
+      _stokAwalAmenities =
+          int.tryParse(widget.dataBarang['sisa_jumlah']?.toString() ?? '') ??
+          int.tryParse(widget.dataBarang['jumlah']?.toString() ?? '') ??
+          0;
+
+      _sisaJumlahAmenitiesCtrl = TextEditingController(
+        text: _stokAwalAmenities.toString(),
+      );
+
+      _catatanAmenitiesCtrl = TextEditingController(
+        text:
+            widget.dataBarang['keterangan'] ??
+            widget.dataBarang['catatan'] ??
+            '',
+      );
+
+      if (widget.dataBarang['tanggal_transaksi'] != null) {
+        _tanggalTransaksiAmenities = DateTime.tryParse(
+          widget.dataBarang['tanggal_transaksi'],
+        );
+      } else {
+        _tanggalTransaksiAmenities = DateTime.now();
       }
     }
   }
@@ -217,15 +272,33 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
       _sisaJumlahAtkCtrl.dispose();
       _catatanAtkCtrl.dispose();
     }
+    if (_kategori == 'Amenities') {
+      // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities'
+      _namaBarangAmenitiesCtrl.dispose();
+      _masukAmenitiesCtrl.dispose();
+      _keluarAmenitiesCtrl.dispose();
+      _sisaJumlahAmenitiesCtrl.dispose();
+      _catatanAmenitiesCtrl.dispose();
+    }
     super.dispose();
   }
 
-  // Hitung otomatis Total Stok ATK (Stok Awal + Masuk - Keluar)
+  // Hitung otomatis Total Stok ATK
   void _hitungTotalStokAtk() {
     int masuk = int.tryParse(_masukAtkCtrl.text) ?? 0;
     int keluar = int.tryParse(_keluarAtkCtrl.text) ?? 0;
     setState(() {
       _sisaJumlahAtkCtrl.text = (_stokAwalAtk + masuk - keluar).toString();
+    });
+  }
+
+  // Hitung otomatis Total Stok AMENITIES
+  void _hitungTotalStokAmenities() {
+    int masuk = int.tryParse(_masukAmenitiesCtrl.text) ?? 0;
+    int keluar = int.tryParse(_keluarAmenitiesCtrl.text) ?? 0;
+    setState(() {
+      _sisaJumlahAmenitiesCtrl.text = (_stokAwalAmenities + masuk - keluar)
+          .toString();
     });
   }
 
@@ -251,7 +324,11 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
     try {
       Map<String, dynamic> dataUpdate = {};
 
-      if (_fotoBaru != null && _kategori != 'APD' && _kategori != 'ATK') {
+      // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities' untuk logic upload foto
+      if (_fotoBaru != null &&
+          _kategori != 'APD' &&
+          _kategori != 'ATK' &&
+          _kategori != 'Amenities') {
         final bytes = await _fotoBaru!.readAsBytes();
         String? url = await CloudinaryService().uploadImageBytes(bytes);
         if (url != null) dataUpdate['foto_url'] = url;
@@ -314,9 +391,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           ]);
         }
       } else if (_kategori == 'ATK') {
-        // ==============================================================
-        // LOGIKA UPDATE DATA & RIWAYAT PERGERAKAN STOK ATK
-        // ==============================================================
         int masuk = int.tryParse(_masukAtkCtrl.text) ?? 0;
         int keluar = int.tryParse(_keluarAtkCtrl.text) ?? 0;
         int sisaJumlahBaru =
@@ -327,16 +401,15 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           'satuan': _satuanAtkTerpilih,
           'masuk': masuk,
           'keluar': keluar,
-          'jumlah': sisaJumlahBaru, // Menyesuaikan dengan format form tambah
-          'sisa_jumlah': sisaJumlahBaru, // Kunci lama agar kompatibel
+          'jumlah': sisaJumlahBaru,
+          'sisa_jumlah': sisaJumlahBaru,
           'stok_sekarang': sisaJumlahBaru,
           'tanggal_transaksi':
               _tanggalTransaksiAtk?.toIso8601String() ??
               DateTime.now().toIso8601String(),
-          'keterangan': _catatanAtkCtrl.text, // Key di db adalah keterangan
+          'keterangan': _catatanAtkCtrl.text,
         });
 
-        // Tambah riwayat stok jika stok berubah, ada transaksi masuk/keluar, atau ada catatan
         if (_stokAwalAtk != sisaJumlahBaru ||
             masuk > 0 ||
             keluar > 0 ||
@@ -354,6 +427,49 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
 
           dataUpdate['riwayat_stok_atk'] = FieldValue.arrayUnion([
             riwayatAtkBaru,
+          ]);
+        }
+      } else if (_kategori == 'Amenities') {
+        // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities'
+        // ==============================================================
+        // LOGIKA UPDATE DATA & RIWAYAT PERGERAKAN STOK AMENITIES
+        // ==============================================================
+        int masuk = int.tryParse(_masukAmenitiesCtrl.text) ?? 0;
+        int keluar = int.tryParse(_keluarAmenitiesCtrl.text) ?? 0;
+        int sisaJumlahBaru =
+            int.tryParse(_sisaJumlahAmenitiesCtrl.text) ?? _stokAwalAmenities;
+
+        dataUpdate.addAll({
+          'nama_barang': _namaBarangAmenitiesCtrl.text,
+          'satuan': _satuanAmenitiesTerpilih,
+          'masuk': masuk,
+          'keluar': keluar,
+          'jumlah': sisaJumlahBaru,
+          'sisa_jumlah': sisaJumlahBaru,
+          'stok_sekarang': sisaJumlahBaru,
+          'tanggal_transaksi':
+              _tanggalTransaksiAmenities?.toIso8601String() ??
+              DateTime.now().toIso8601String(),
+          'keterangan': _catatanAmenitiesCtrl.text,
+        });
+
+        if (_stokAwalAmenities != sisaJumlahBaru ||
+            masuk > 0 ||
+            keluar > 0 ||
+            _catatanAmenitiesCtrl.text.isNotEmpty) {
+          Map<String, dynamic> riwayatAmenitiesBaru = {
+            'tanggal': DateTime.now().toIso8601String(),
+            'masuk': masuk,
+            'keluar': keluar,
+            'jumlah_lama': _stokAwalAmenities,
+            'jumlah_baru': sisaJumlahBaru,
+            'catatan': _catatanAmenitiesCtrl.text.isEmpty
+                ? 'Update data AMENITIES'
+                : _catatanAmenitiesCtrl.text,
+          };
+
+          dataUpdate['riwayat_stok_amenities'] = FieldValue.arrayUnion([
+            riwayatAmenitiesBaru,
           ]);
         }
       }
@@ -398,7 +514,10 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            if (_kategori != 'APD' && _kategori != 'ATK') ...[
+            // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities' untuk sembunyikan foto
+            if (_kategori != 'APD' &&
+                _kategori != 'ATK' &&
+                _kategori != 'Amenities') ...[
               _buildFotoWidget(),
               const SizedBox(height: 16),
               const Divider(thickness: 2),
@@ -409,6 +528,8 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
             if (_kategori == 'P3K') _buildFormEditP3K(),
             if (_kategori == 'APD') _buildFormEditApd(),
             if (_kategori == 'ATK') _buildFormEditAtk(),
+            // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities' agar form tampil
+            if (_kategori == 'Amenities') _buildFormEditAmenities(),
 
             const SizedBox(height: 32),
             SizedBox(
@@ -431,7 +552,136 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
   }
 
   // ==========================================
-  // WIDGET FORM EDIT ATK (BARU)
+  // WIDGET FORM EDIT AMENITIES
+  // ==========================================
+  Widget _buildFormEditAmenities() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'EDIT DATA AMENITIES',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+
+        // 1. Informasi Barang & Satuan
+        TextField(
+          controller: _namaBarangAmenitiesCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Nama Barang',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          value: _satuanAmenitiesTerpilih,
+          decoration: const InputDecoration(
+            labelText: 'Satuan',
+            border: OutlineInputBorder(),
+          ),
+          items: _listSatuanAmenities
+              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+              .toList(),
+          onChanged: (val) => setState(() => _satuanAmenitiesTerpilih = val!),
+        ),
+        const SizedBox(height: 16),
+
+        // 2. Transaksi & Penyesuaian Stok
+        const Text(
+          'Data Transaksi / Pergerakan Barang',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () async {
+            DateTime? d = await _selectDate(
+              context,
+              _tanggalTransaksiAmenities,
+            );
+            if (d != null) setState(() => _tanggalTransaksiAmenities = d);
+          },
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              labelText: 'Tanggal Transaksi',
+              border: OutlineInputBorder(),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _tanggalTransaksiAmenities == null
+                      ? 'Pilih Tanggal'
+                      : '${_tanggalTransaksiAmenities!.day}-${_tanggalTransaksiAmenities!.month}-${_tanggalTransaksiAmenities!.year}',
+                ),
+                const Icon(Icons.calendar_month, color: Colors.blueAccent),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _masukAmenitiesCtrl,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => _hitungTotalStokAmenities(),
+                decoration: const InputDecoration(
+                  labelText: 'Barang Masuk (+)',
+                  border: OutlineInputBorder(),
+                  hintText: '0',
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _keluarAmenitiesCtrl,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => _hitungTotalStokAmenities(),
+                decoration: const InputDecoration(
+                  labelText: 'Barang Keluar (-)',
+                  border: OutlineInputBorder(),
+                  hintText: '0',
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // 3. Info Stok (Otomatis)
+        TextField(
+          controller: _sisaJumlahAmenitiesCtrl,
+          readOnly: true,
+          decoration: InputDecoration(
+            labelText: 'Jumlah Stock Saat Ini',
+            border: const OutlineInputBorder(),
+            filled: true,
+            fillColor: Colors.grey.shade200,
+            helperText: 'Otomatis: (Stok Lama + Masuk - Keluar)',
+            helperStyle: const TextStyle(color: Colors.blue),
+          ),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        const SizedBox(height: 16),
+
+        // 4. Catatan / Keterangan
+        TextField(
+          controller: _catatanAmenitiesCtrl,
+          maxLines: 2,
+          decoration: const InputDecoration(
+            labelText: 'Catatan',
+            hintText: 'Cth: Pengadaan rutin bulanan / Diambil tim B',
+            border: OutlineInputBorder(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==========================================
+  // WIDGET FORM EDIT ATK
   // ==========================================
   Widget _buildFormEditAtk() {
     return Column(
@@ -529,7 +779,7 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
         // 3. Info Stok (Otomatis)
         TextField(
           controller: _sisaJumlahAtkCtrl,
-          readOnly: true, // Tidak bisa diedit manual, mengandalkan perhitungan
+          readOnly: true,
           decoration: InputDecoration(
             labelText: 'Jumlah Stock Saat Ini',
             border: const OutlineInputBorder(),

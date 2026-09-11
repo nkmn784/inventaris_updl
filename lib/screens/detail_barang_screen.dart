@@ -97,6 +97,8 @@ class DetailBarangScreen extends StatelessWidget {
         // Ambil data riwayat pergerakan stok
         List<dynamic> riwayatStokApd = currentData['riwayat_jumlah_apd'] ?? [];
         List<dynamic> riwayatStokAtk = currentData['riwayat_stok_atk'] ?? [];
+        List<dynamic> riwayatStokAmenities =
+            currentData['riwayat_stok_amenities'] ?? [];
 
         return Scaffold(
           appBar: AppBar(
@@ -127,8 +129,10 @@ class DetailBarangScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities' agar foto tersembunyi dengan benar
                 if (kategori != 'APD' &&
                     kategori != 'ATK' &&
+                    kategori != 'Amenities' &&
                     currentData['foto_url'] != null &&
                     currentData['foto_url'].toString().isNotEmpty)
                   Container(
@@ -154,11 +158,149 @@ class DetailBarangScreen extends StatelessWidget {
                   _buildDetailAtk(context, currentData),
                   _buildRiwayatPergerakanStok(riwayatStokAtk),
                 ],
+                // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities' agar widget muncul
+                if (kategori == 'Amenities') ...[
+                  _buildDetailAmenities(context, currentData),
+                  _buildRiwayatPergerakanStok(riwayatStokAmenities),
+                ],
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  // ==========================================
+  // WIDGET DETAIL AMENITIES
+  // ==========================================
+  Widget _buildDetailAmenities(
+    BuildContext context,
+    Map<String, dynamic> data,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. Informasi Barang
+        Card(
+          elevation: 3,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  data['nama_barang'] ?? 'Tanpa Nama Barang',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Divider(height: 24, thickness: 1),
+                _buildInfoRow('Satuan', data['satuan']?.toString() ?? '-'),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 2. Data Transaksi
+        Card(
+          elevation: 3,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Data Transaksi',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const Divider(),
+                _buildInfoRow(
+                  'Tanggal Transaksi',
+                  _formatDate(data['tanggal_transaksi']),
+                ),
+                _buildInfoRow(
+                  'Barang Masuk',
+                  '${data['masuk']?.toString() ?? '0'} ${data['satuan'] ?? ''}',
+                ),
+                _buildInfoRow(
+                  'Barang Keluar',
+                  '${data['keluar']?.toString() ?? '0'} ${data['satuan'] ?? ''}',
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 3. Sisa Persediaan / Jumlah Stock
+        Card(
+          elevation: 3,
+          color: Colors.blue.shade50,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Sisa Persediaan',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+                const Divider(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Jumlah Stock Saat Ini',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '${data['jumlah'] ?? data['sisa_jumlah'] ?? data['stok_sekarang'] ?? '0'} ${data['satuan'] ?? ''}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // 4. Catatan (Muncul jika ada isinya saja)
+        if ((data['keterangan'] ?? data['catatan']) != null &&
+            (data['keterangan'] ?? data['catatan']).toString().isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Card(
+            elevation: 3,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Catatan',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const Divider(),
+                  Text(
+                    (data['keterangan'] ?? data['catatan']).toString(),
+                    style: const TextStyle(fontStyle: FontStyle.italic),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 

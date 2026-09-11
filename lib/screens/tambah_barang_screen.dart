@@ -15,7 +15,8 @@ class TambahBarangScreen extends StatefulWidget {
 
 class _TambahBarangScreenState extends State<TambahBarangScreen> {
   String _kategoriTerpilih = 'APAR';
-  final List<String> _listKategori = ['APAR', 'P3K', 'APD', 'ATK'];
+  // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities'
+  final List<String> _listKategori = ['APAR', 'P3K', 'APD', 'ATK', 'Amenities'];
   bool _isLoading = false;
 
   // ==========================================
@@ -87,7 +88,7 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
   // ==========================================
   final _namaAtkCtrl = TextEditingController();
   final _jumlahAtkCtrl = TextEditingController();
-  final _catatanAtkCtrl = TextEditingController(); // Untuk Catatan
+  final _catatanAtkCtrl = TextEditingController();
   String _satuanAtkTerpilih = 'Pcs';
   final List<String> _listSatuanAtk = [
     'Pcs',
@@ -96,6 +97,23 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
     'Box',
     'Lusin',
     'Buah',
+  ];
+
+  // ==========================================
+  // FORM FIELD AMENITIES
+  // ==========================================
+  final _namaAmenitiesCtrl = TextEditingController();
+  final _jumlahAmenitiesCtrl = TextEditingController();
+  final _catatanAmenitiesCtrl = TextEditingController();
+  String _satuanAmenitiesTerpilih = 'Pcs';
+  final List<String> _listSatuanAmenities = [
+    'Pcs',
+    'Rim',
+    'Pak',
+    'Box',
+    'Lusin',
+    'Buah',
+    'Botol',
   ];
 
   // ==========================================
@@ -152,7 +170,6 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
 
   @override
   void dispose() {
-    // Controller APAR & P3K
     _namaAlatCtrl.dispose();
     _lokasiCtrl.dispose();
     _noAparCtrl.dispose();
@@ -161,19 +178,18 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
     _gedungRuangCtrl.dispose();
     _kapasitasCtrl.dispose();
     _keteranganP3kCtrl.dispose();
-
-    // Controller APD
     _peralatanApdCtrl.dispose();
     _jumlahApdCtrl.dispose();
     _masaPakaiApdCtrl.dispose();
     _tglKadaluarsaApdCtrl.dispose();
     _kondisiApdCtrl.dispose();
     _pembelianApdCtrl.dispose();
-
-    // Controller ATK
     _namaAtkCtrl.dispose();
     _jumlahAtkCtrl.dispose();
     _catatanAtkCtrl.dispose();
+    _namaAmenitiesCtrl.dispose();
+    _jumlahAmenitiesCtrl.dispose();
+    _catatanAmenitiesCtrl.dispose();
     super.dispose();
   }
 
@@ -209,7 +225,7 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
                   onChanged: (val) {
                     setState(() {
                       _kategoriTerpilih = val!;
-                      _foto = null; // Reset foto saat ganti kategori
+                      _foto = null;
                     });
                   },
                 ),
@@ -219,16 +235,19 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
             const Divider(thickness: 2),
             const SizedBox(height: 16),
 
-            // Tampilkan form berdasarkan pilihan
             if (_kategoriTerpilih == 'APAR') _buildFormApar(),
             if (_kategoriTerpilih == 'P3K') _buildFormP3K(),
             if (_kategoriTerpilih == 'APD') _buildFormApd(),
             if (_kategoriTerpilih == 'ATK') _buildFormAtk(),
+            if (_kategoriTerpilih == 'Amenities')
+              _buildFormAmenities(), // PERBAIKAN
 
             const SizedBox(height: 24),
 
-            // Sembunyikan Foto & Lokasi jika kategori adalah APD atau ATK
-            if (_kategoriTerpilih != 'APD' && _kategoriTerpilih != 'ATK') ...[
+            if (_kategoriTerpilih != 'APD' &&
+                _kategoriTerpilih != 'ATK' &&
+                _kategoriTerpilih != 'Amenities') ...[
+              // PERBAIKAN
               _buildFotoWidget(),
               const SizedBox(height: 16),
               _buildLocationButton(),
@@ -251,6 +270,70 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // ==========================================
+  // WIDGET FORM AMENITIES
+  // ==========================================
+  Widget _buildFormAmenities() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'DATA AMENITIES',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _namaAmenitiesCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Nama Barang (Contoh: Sabun, Sampo)',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              flex: 1,
+              child: TextField(
+                controller: _jumlahAmenitiesCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Jumlah',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 1,
+              child: DropdownButtonFormField<String>(
+                value: _satuanAmenitiesTerpilih,
+                decoration: const InputDecoration(
+                  labelText: 'Satuan',
+                  border: OutlineInputBorder(),
+                ),
+                items: _listSatuanAmenities
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (val) =>
+                    setState(() => _satuanAmenitiesTerpilih = val!),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _catatanAmenitiesCtrl,
+          maxLines: 2,
+          decoration: const InputDecoration(
+            labelText: 'Catatan',
+            border: OutlineInputBorder(),
+          ),
+        ),
+      ],
     );
   }
 
@@ -715,7 +798,9 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
       String? fotoUrl;
       if (_foto != null &&
           _kategoriTerpilih != 'APD' &&
-          _kategoriTerpilih != 'ATK') {
+          _kategoriTerpilih != 'ATK' &&
+          _kategoriTerpilih != 'Amenities') {
+        // PERBAIKAN
         final bytes = await _foto!.readAsBytes();
         fotoUrl = await CloudinaryService().uploadImageBytes(bytes);
       }
@@ -767,20 +852,29 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
           'pembelian': _pembelianApdCtrl.text,
         };
       } else if (_kategoriTerpilih == 'ATK') {
-        // DATA SIMPAN KHUSUS ATK
         int jmlInput = int.tryParse(_jumlahAtkCtrl.text) ?? 0;
         dataSimpan = {
           'kategori': 'ATK',
           'nama_barang': _namaAtkCtrl.text,
           'lokasi': '-',
           'jumlah': jmlInput,
-          'sisa_jumlah':
-              jmlInput, // Disamakan dengan kunci database sebelumnya agar match dengan edit
-          'satuan': _satuanAtkTerpilih, // Diambil dari pilihan Dropdown
-          'keterangan': _catatanAtkCtrl
-              .text, // Key database tetap keterangan, tapi label di UI adalah Catatan
-          'tanggal_transaksi': DateTime.now()
-              .toIso8601String(), // Agar tanggal update langsung muncul
+          'sisa_jumlah': jmlInput,
+          'satuan': _satuanAtkTerpilih,
+          'keterangan': _catatanAtkCtrl.text,
+          'tanggal_transaksi': DateTime.now().toIso8601String(),
+        };
+      } else if (_kategoriTerpilih == 'Amenities') {
+        // PERBAIKAN
+        int jmlInput = int.tryParse(_jumlahAmenitiesCtrl.text) ?? 0;
+        dataSimpan = {
+          'kategori': 'Amenities', // PERBAIKAN
+          'nama_barang': _namaAmenitiesCtrl.text,
+          'lokasi': '-',
+          'jumlah': jmlInput,
+          'sisa_jumlah': jmlInput,
+          'satuan': _satuanAmenitiesTerpilih,
+          'keterangan': _catatanAmenitiesCtrl.text,
+          'tanggal_transaksi': DateTime.now().toIso8601String(),
         };
       }
 

@@ -575,6 +575,71 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
           nomorUrut++;
         }
 
+        // EXCEL AMENITIES
+      } else if (kategoriUpper.contains('AMENITIES')) {
+        sheetObject.merge(
+          CellIndex.indexByString('A1'),
+          CellIndex.indexByString('G1'),
+          customValue: TextCellValue('LAPORAN INVENTARIS AMENITIES'),
+        );
+        sheetObject.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
+
+        sheetObject.cell(CellIndex.indexByString('A2')).value = TextCellValue(
+          'BULAN / TAHUN : $bulanTahun',
+        );
+
+        List<String> headersAmenities = [
+          'No.',
+          'Nama Barang',
+          'Jumlah',
+          'Satuan',
+          'Lokasi / Ruang',
+          'Kondisi',
+          'Keterangan',
+        ];
+
+        for (int i = 0; i < headersAmenities.length; i++) {
+          var cell = sheetObject.cell(
+            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3),
+          );
+          cell.value = TextCellValue(headersAmenities[i]);
+          cell.cellStyle = headerStyle;
+        }
+
+        int rowIndex = 4;
+        int nomorUrut = 1;
+
+        String formatData(dynamic data) {
+          if (data == null || data.toString().trim().isEmpty) return '-';
+          return data.toString();
+        }
+
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          List<String> rowData = [
+            nomorUrut.toString(),
+            formatData(data['nama_barang'] ?? data['nama_atk'] ?? data['nama']),
+            formatData(data['jumlah'] ?? data['stok'] ?? data['qty']),
+            formatData(data['satuan']),
+            formatData(data['lokasi'] ?? data['gedung_ruang']),
+            formatData(data['kondisi']),
+            formatData(data['keterangan']),
+          ];
+
+          for (int i = 0; i < rowData.length; i++) {
+            var cell = sheetObject.cell(
+              CellIndex.indexByColumnRow(columnIndex: i, rowIndex: rowIndex),
+            );
+            cell.value = TextCellValue(rowData[i]);
+
+            if (i != 1) {
+              cell.cellStyle = centerAlign;
+            }
+          }
+          rowIndex++;
+          nomorUrut++;
+        }
+
         // KATEGORI LAINNYA
       } else {
         sheetObject.cell(CellIndex.indexByString('A1')).value = TextCellValue(
@@ -774,7 +839,8 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                   } else if (kategoriData.contains('APD')) {
                     searchString =
                         '${data['peralatan'] ?? data['nama_apd'] ?? data['nama_barang'] ?? ''} ${data['kondisi'] ?? ''} ${data['pembelian'] ?? ''}';
-                  } else if (kategoriData.contains('ATK')) {
+                  } else if (kategoriData.contains('ATK') ||
+                      kategoriData.contains('AMENITIES')) {
                     searchString =
                         '${data['nama_barang'] ?? data['nama_atk'] ?? data['nama'] ?? ''} ${data['lokasi'] ?? data['gedung_ruang'] ?? ''} ${data['keterangan'] ?? ''}';
                   } else {
@@ -876,14 +942,15 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                           false);
 
                       // ==========================================
-                      // ATK (ALAT TULIS KANTOR)
+                      // ATK & AMENITIES
                       // ==========================================
-                    } else if (kategoriData.contains('ATK')) {
+                    } else if (kategoriData.contains('ATK') ||
+                        kategoriData.contains('AMENITIES')) {
                       judulUtama =
                           data['nama_barang'] ??
                           data['nama_atk'] ??
                           data['nama'] ??
-                          'ATK Tanpa Nama';
+                          'Tanpa Nama';
 
                       dynamic rawJml =
                           data['sisa_jumlah'] ??
@@ -989,6 +1056,8 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                                         ? Icons.health_and_safety
                                         : kategoriData.contains('ATK')
                                         ? Icons.edit_note
+                                        : kategoriData.contains('AMENITIES')
+                                        ? Icons.spa
                                         : Icons.inventory_2,
                                     color: Colors.grey,
                                   ),

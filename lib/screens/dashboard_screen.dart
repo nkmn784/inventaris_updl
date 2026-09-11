@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'daftar_barang_screen.dart';
+import 'daftar_penerangan_screen.dart'; // Import halaman khusus penerangan
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -229,14 +230,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                     onTap: () {
-                      // Berpindah ke Halaman Daftar Barang sesuai kategori yang diklik
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              DaftarBarangScreen(namaKategori: item['nama']),
-                        ),
-                      );
+                      // Percabangan halaman berdasarkan kategori
+                      if (item['nama'] == 'Penerangan') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const DaftarPeneranganScreen(),
+                          ),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                DaftarBarangScreen(namaKategori: item['nama']),
+                          ),
+                        );
+                      }
                     },
                   ),
                 );

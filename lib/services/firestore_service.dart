@@ -38,4 +38,17 @@ class FirestoreService {
       throw 'Gagal menghapus data: $e';
     }
   }
+
+  // Fungsi untuk mengedit / update data
+  Future<void> editBarang(
+    String koleksi,
+    String docId,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      await _db.collection(koleksi).doc(docId).update(data);
+    } catch (e) {
+      throw Exception('Gagal mengupdate data: $e');
+    }
+  }
 }
