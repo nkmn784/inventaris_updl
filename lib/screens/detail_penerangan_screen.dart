@@ -5,10 +5,58 @@ import '../models/penerangan_model.dart';
 import '../services/firestore_service.dart';
 import 'edit_penerangan_screen.dart';
 
-class DetailPeneranganScreen extends StatelessWidget {
+class DetailPeneranganScreen extends StatefulWidget {
   final PeneranganModel item;
 
   const DetailPeneranganScreen({super.key, required this.item});
+
+  @override
+  State<DetailPeneranganScreen> createState() => _DetailPeneranganScreenState();
+}
+
+class _DetailPeneranganScreenState extends State<DetailPeneranganScreen> {
+  late List<dynamic> _riwayatList;
+
+  @override
+  void initState() {
+    super.initState();
+    _riwayatList = List.from(widget.item.riwayatPergantian ?? []);
+    _bersihkanRiwayatLamaOtomatis();
+  }
+
+  // Fungsi otomatis menghapus riwayat > 3 bulan dari Firestore dan memori lokal
+  Future<void> _bersihkanRiwayatLamaOtomatis() async {
+    if (_riwayatList.isEmpty) return;
+
+    DateTime batasWaktu = DateTime.now().subtract(const Duration(days: 90));
+
+    // Filter hanya yang usianya masih dalam 3 bulan terakhir (<= 90 hari)
+    List<dynamic> riwayatTerbaru = _riwayatList.where((element) {
+      final data = element as Map<String, dynamic>;
+      String tglStr = data['tanggal'] ?? data['tanggalGanti'] ?? '';
+      DateTime? parsedDate = DateTime.tryParse(tglStr);
+
+      if (parsedDate == null)
+        return true; // Pertahankan jika format tanggal tidak valid
+      return parsedDate.isAfter(batasWaktu);
+    }).toList();
+
+    // Jika jumlah data berkurang (artinya ada yang kedaluwarsa dan dihapus)
+    if (riwayatTerbaru.length != _riwayatList.length) {
+      setState(() {
+        _riwayatList = riwayatTerbaru;
+      });
+
+      // Update / hapus permanen data di database Firestore untuk menghemat penyimpanan
+      try {
+        await FirestoreService().editBarang('Penerangan', widget.item.id!, {
+          'riwayat_pergantian': riwayatTerbaru,
+        });
+      } catch (e) {
+        debugPrint('Gagal membersihkan riwayat otomatis di Firestore: $e');
+      }
+    }
+  }
 
   Future<void> _bukaPeta(BuildContext context, double? lat, double? lng) async {
     if (lat == null || lng == null || (lat == 0.0 && lng == 0.0)) {
@@ -23,7 +71,6 @@ class DetailPeneranganScreen extends StatelessWidget {
     final Uri url = Uri.parse(
       'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
     );
-
     try {
       if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
         throw 'Could not launch $url';
@@ -46,7 +93,7 @@ class DetailPeneranganScreen extends StatelessWidget {
           style: TextStyle(color: Colors.red),
         ),
         content: Text(
-          'Yakin ingin menghapus titik lampu di ${item.lokasiSpesifik}? Data yang dihapus tidak dapat dikembalikan.',
+          'Yakin ingin menghapus titik lampu di ${widget.item.lokasiSpesifik}? Data yang dihapus tidak dapat dikembalikan.',
         ),
         actions: [
           TextButton(
@@ -58,7 +105,10 @@ class DetailPeneranganScreen extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(ctx);
               try {
-                await FirestoreService().hapusBarang('Penerangan', item.id!);
+                await FirestoreService().hapusBarang(
+                  'Penerangan',
+                  widget.item.id!,
+                );
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -131,7 +181,7 @@ class DetailPeneranganScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      item.kodeUnik ?? '-',
+                      widget.item.kodeUnik ?? '-',
                       style: TextStyle(
                         fontSize: 48,
                         fontWeight: FontWeight.bold,
@@ -146,13 +196,13 @@ class DetailPeneranganScreen extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: item.status?.toLowerCase() == 'normal'
+                        color: widget.item.status?.toLowerCase() == 'normal'
                             ? Colors.green
                             : Colors.red,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        'Status: ${item.status?.toUpperCase() ?? '-'}',
+                        'Status: ${widget.item.status?.toUpperCase() ?? '-'}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -184,13 +234,13 @@ class DetailPeneranganScreen extends StatelessWidget {
                     _buildInfoRow(
                       Icons.business,
                       'Gedung / Ruangan',
-                      item.gedungRuangan,
+                      widget.item.gedungRuangan,
                     ),
                     const Divider(height: 24),
                     _buildInfoRow(
                       Icons.my_location,
                       'Lokasi Spesifik',
-                      item.lokasiSpesifik,
+                      widget.item.lokasiSpesifik,
                     ),
                     const Divider(height: 24),
                     Row(
@@ -215,7 +265,7 @@ class DetailPeneranganScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${item.latitude}, ${item.longitude}',
+                                '${widget.item.latitude}, ${widget.item.longitude}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w500,
                                   fontSize: 14,
@@ -225,8 +275,11 @@ class DetailPeneranganScreen extends StatelessWidget {
                           ),
                         ),
                         ElevatedButton.icon(
-                          onPressed: () =>
-                              _bukaPeta(context, item.latitude, item.longitude),
+                          onPressed: () => _bukaPeta(
+                            context,
+                            widget.item.latitude,
+                            widget.item.longitude,
+                          ),
                           icon: const Icon(Icons.map, size: 16),
                           label: const Text('Buka Maps'),
                           style: ElevatedButton.styleFrom(
@@ -261,46 +314,59 @@ class DetailPeneranganScreen extends StatelessWidget {
                     _buildInfoRow(
                       Icons.lightbulb_outline,
                       'Merk & Jenis',
-                      '${item.merkLampu} - ${item.jenisLampu}',
+                      '${widget.item.merkLampu} - ${widget.item.jenisLampu}',
                     ),
                     const Divider(height: 24),
                     _buildInfoRow(
                       Icons.bolt,
                       'Daya Listrik',
-                      '${item.watt} Watt',
+                      '${widget.item.watt} Watt',
                     ),
                     const Divider(height: 24),
                     _buildInfoRow(
                       Icons.person_outline,
                       'Petugas Pasang',
-                      item.petugasPasang,
+                      widget.item.petugasPasang,
                     ),
                     const Divider(height: 24),
                     _buildInfoRow(
                       Icons.notes,
                       'Catatan',
-                      item.catatan?.isEmpty ?? true
+                      widget.item.catatan?.isEmpty ?? true
                           ? 'Tidak ada catatan'
-                          : item.catatan,
+                          : widget.item.catatan,
                     ),
                   ],
                 ),
               ),
             ),
+            const SizedBox(height: 24),
 
+            // --- BAGIAN RIWAYAT PERGANTIAN ---
+            const Text(
+              'Riwayat Pemeliharaan',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            _buildRiwayatList(),
             const SizedBox(height: 32),
 
             SizedBox(
               width: double.infinity,
               height: 55,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
+                onPressed: () async {
+                  final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => EditPeneranganScreen(item: item),
+                      builder: (context) =>
+                          EditPeneranganScreen(item: widget.item),
                     ),
                   );
+
+                  if (result == true && context.mounted) {
+                    Navigator.pop(context);
+                  }
                 },
                 icon: const Icon(Icons.build_circle_outlined, size: 28),
                 label: const Text(
@@ -320,6 +386,127 @@ class DetailPeneranganScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRiwayatList() {
+    if (_riwayatList.isEmpty) {
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.grey.shade300),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Center(
+            child: Text(
+              'Belum ada riwayat pemeliharaan dalam 3 bulan terakhir.',
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Membalik urutan agar riwayat paling baru muncul di atas
+    List<dynamic> riwayat = List.from(_riwayatList.reversed);
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: riwayat.length,
+      itemBuilder: (context, index) {
+        final data = riwayat[index] as Map<String, dynamic>;
+
+        bool isGantiBaru =
+            data['tindakan'] == 'Ganti Bohlam Baru' || data['kodeLama'] != null;
+
+        String tgl = data['tanggal'] ?? data['tanggalGanti'] ?? '-';
+        if (tgl.length > 10) tgl = tgl.substring(0, 10);
+
+        return Card(
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade300),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isGantiBaru
+                            ? Colors.blue.shade100
+                            : Colors.orange.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        isGantiBaru ? 'GANTI BOHLAM' : 'UBAH STATUS',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isGantiBaru
+                              ? Colors.blue.shade800
+                              : Colors.orange.shade900,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      tgl,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+                const Divider(height: 16),
+                Text(
+                  'Petugas: ${data['petugas'] ?? '-'}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                if (data['statusBaru'] != null)
+                  Text('Status: ${data['statusBaru']}'),
+                if (data['kodeLampu'] != null)
+                  Text(
+                    'Kode: ${data['kodeLampu']}',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                if (data['merkLampu'] != null || data['watt'] != null)
+                  Text(
+                    'Spesifikasi: ${data['merkLampu'] ?? '-'} (${data['watt'] ?? '-'} Watt)',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.blueGrey,
+                    ),
+                  ),
+                if (data['catatan'] != null &&
+                    data['catatan'].toString().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      'Catatan: ${data['catatan']}',
+                      style: const TextStyle(
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

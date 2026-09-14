@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/penerangan_model.dart';
 import '../services/firestore_service.dart';
@@ -57,17 +58,35 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
     super.dispose();
   }
 
-  String _generateKodeUnik() {
+  Future<String> _generateKodeUnikUnik() async {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     Random rnd = Random();
-    return String.fromCharCodes(
-      Iterable.generate(4, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))),
-    );
+    bool isDuplicate = true;
+    String kodeBaru = '';
+
+    while (isDuplicate) {
+      kodeBaru = String.fromCharCodes(
+        Iterable.generate(
+          4,
+          (_) => chars.codeUnitAt(rnd.nextInt(chars.length)),
+        ),
+      );
+
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('Penerangan')
+          .where('kode_unik', isEqualTo: kodeBaru)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        isDuplicate = false;
+      }
+    }
+
+    return kodeBaru;
   }
 
   Future<void> _simpanPerubahan() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading = true);
 
     try {
@@ -77,26 +96,32 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
       );
 
       if (_gantiBohlamBaru) {
-        kodeLampuBaru = _generateKodeUnik();
-
-        riwayatBaru.add({
-          'kodeLama': widget.item.kodeUnik,
-          'tanggalGanti': DateTime.now().toIso8601String(),
-          'petugas': _petugasCtrl.text.trim(),
-          'merkLama': widget.item.merkLampu,
-          'wattLama': widget.item.watt,
-        });
+        kodeLampuBaru = await _generateKodeUnikUnik();
       }
+
+      // Catat ke riwayat beserta merk dan watt lampu baru/saat ini
+      riwayatBaru.add({
+        'tindakan': _gantiBohlamBaru
+            ? 'Ganti Bohlam Baru'
+            : 'Perawatan / Ubah Status',
+        'tanggal': DateTime.now().toIso8601String(),
+        'petugas': _petugasCtrl.text.trim(),
+        'statusBaru': _statusTerpilih,
+        'kodeLampu': kodeLampuBaru,
+        'merkLampu': _merkCtrl.text.trim(), // Disimpan ke riwayat
+        'watt': int.tryParse(_wattCtrl.text) ?? 0, // Disimpan ke riwayat
+        'catatan': _catatanCtrl.text.trim(),
+      });
 
       Map<String, dynamic> dataUpdate = {
         'status': _statusTerpilih,
-        'jenisLampu': _jenisLampuTerpilih,
-        'merkLampu': _merkCtrl.text.trim(),
+        'jenis_lampu': _jenisLampuTerpilih,
+        'merk_lampu': _merkCtrl.text.trim(),
         'watt': int.tryParse(_wattCtrl.text) ?? 0,
-        'kodeUnik': kodeLampuBaru,
-        'petugasPasang': _petugasCtrl.text.trim(),
+        'kode_unik': kodeLampuBaru,
+        'petugas_pasang': _petugasCtrl.text.trim(),
         'catatan': _catatanCtrl.text.trim(),
-        'riwayatPergantian': riwayatBaru,
+        'riwayat_pergantian': riwayatBaru,
       };
 
       await FirestoreService().editBarang(
@@ -111,9 +136,9 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
         if (_gantiBohlamBaru) {
           _tampilkanDialogKodeBaru(kodeLampuBaru);
         } else {
-          Navigator.pop(context);
+          Navigator.pop(context, true);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Data berhasil diperbarui')),
+            const SnackBar(content: Text('Status berhasil diperbarui')),
           );
         }
       }
@@ -172,7 +197,7 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
-              Navigator.pop(context);
+              Navigator.pop(context, true);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
             child: const Text(
