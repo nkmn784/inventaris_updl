@@ -23,6 +23,39 @@ class DetailBarangScreen extends StatelessWidget {
     }
   }
 
+  // Fungsi otomatis memfilter dan menghapus riwayat > 1 tahun (365 hari) dari Firestore
+  List<dynamic> _filterDanBersihkanRiwayat(
+    String kategori,
+    String docId,
+    List<dynamic> riwayatAsli,
+    String keyField,
+  ) {
+    if (riwayatAsli.isEmpty) return [];
+
+    DateTime batasWaktu = DateTime.now().subtract(const Duration(days: 365));
+
+    List<dynamic> riwayatTerbaru = riwayatAsli.where((element) {
+      if (element is! Map<String, dynamic>) return true;
+      String dateString = element['tanggal'] ?? element['tgl'] ?? '';
+      DateTime? parsedDate = DateTime.tryParse(dateString);
+
+      if (parsedDate == null)
+        return true; // Pertahankan jika format tanggal tidak valid
+      return parsedDate.isAfter(batasWaktu);
+    }).toList();
+
+    // Jika ada data yang berumur lebih dari 1 tahun, perbarui Firestore
+    if (riwayatTerbaru.length != riwayatAsli.length) {
+      FirestoreService()
+          .editBarang(kategori, docId, {keyField: riwayatTerbaru})
+          .catchError((e) {
+            debugPrint('Gagal membersihkan riwayat $kategori di Firestore: $e');
+          });
+    }
+
+    return riwayatTerbaru;
+  }
+
   @override
   Widget build(BuildContext context) {
     String kategori = dataBarang['kategori'] ?? 'APD';
@@ -51,10 +84,25 @@ class DetailBarangScreen extends StatelessWidget {
 
         final currentData = snapshot.data!.data() as Map<String, dynamic>;
 
-        List<dynamic> riwayatStokApd = currentData['riwayat_jumlah_apd'] ?? [];
-        List<dynamic> riwayatStokAtk = currentData['riwayat_stok_atk'] ?? [];
-        List<dynamic> riwayatStokAmenities =
-            currentData['riwayat_stok_amenities'] ?? [];
+        // Menyaring dan membersihkan riwayat pergerakan stok untuk setiap kategori
+        List<dynamic> riwayatStokApd = _filterDanBersihkanRiwayat(
+          kategori,
+          documentId,
+          currentData['riwayat_jumlah_apd'] ?? [],
+          'riwayat_jumlah_apd',
+        );
+        List<dynamic> riwayatStokAtk = _filterDanBersihkanRiwayat(
+          kategori,
+          documentId,
+          currentData['riwayat_stok_atk'] ?? [],
+          'riwayat_stok_atk',
+        );
+        List<dynamic> riwayatStokAmenities = _filterDanBersihkanRiwayat(
+          kategori,
+          documentId,
+          currentData['riwayat_stok_amenities'] ?? [],
+          'riwayat_stok_amenities',
+        );
 
         return Scaffold(
           appBar: AppBar(

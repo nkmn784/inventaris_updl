@@ -24,13 +24,14 @@ class _DetailPeneranganScreenState extends State<DetailPeneranganScreen> {
     _bersihkanRiwayatLamaOtomatis();
   }
 
-  // Fungsi otomatis menghapus riwayat > 3 bulan dari Firestore dan memori lokal
+  // Fungsi otomatis menghapus riwayat > 1 tahun (365 hari) dari Firestore dan memori lokal
   Future<void> _bersihkanRiwayatLamaOtomatis() async {
     if (_riwayatList.isEmpty) return;
 
-    DateTime batasWaktu = DateTime.now().subtract(const Duration(days: 90));
+    // UBAH DI SINI: Mengubah dari 90 hari menjadi 365 hari (1 tahun)
+    DateTime batasWaktu = DateTime.now().subtract(const Duration(days: 365));
 
-    // Filter hanya yang usianya masih dalam 3 bulan terakhir (<= 90 hari)
+    // Filter hanya yang usianya masih dalam 1 tahun terakhir (<= 365 hari)
     List<dynamic> riwayatTerbaru = _riwayatList.where((element) {
       final data = element as Map<String, dynamic>;
       String tglStr = data['tanggal'] ?? data['tanggalGanti'] ?? '';
@@ -401,7 +402,8 @@ class _DetailPeneranganScreenState extends State<DetailPeneranganScreen> {
           padding: EdgeInsets.all(16.0),
           child: Center(
             child: Text(
-              'Belum ada riwayat pemeliharaan dalam 3 bulan terakhir.',
+              // UBAH DI SINI: Mengubah teks keterangan dari 3 bulan menjadi 1 tahun
+              'Belum ada riwayat pemeliharaan dalam 1 tahun terakhir.',
               style: TextStyle(color: Colors.grey),
               textAlign: TextAlign.center,
             ),
