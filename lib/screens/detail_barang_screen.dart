@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../services/firestore_service.dart';
 import 'edit_barang_screen.dart';
 
@@ -25,50 +23,9 @@ class DetailBarangScreen extends StatelessWidget {
     }
   }
 
-  void _salinKoordinat(BuildContext context, String lat, String long) {
-    if (lat == '-' || long == '-' || lat.isEmpty || long.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Titik koordinat tidak tersedia!')),
-      );
-      return;
-    }
-    final teksKoordinat = '$lat, $long';
-    Clipboard.setData(ClipboardData(text: teksKoordinat));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Koordinat disalin: $teksKoordinat')),
-    );
-  }
-
-  Future<void> _bukaGoogleMaps(
-    BuildContext context,
-    String lat,
-    String long,
-  ) async {
-    if (lat == '-' || long == '-' || lat.isEmpty || long.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Titik koordinat tidak tersedia!')),
-      );
-      return;
-    }
-
-    final url = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=$lat,$long',
-    );
-
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tidak dapat membuka Google Maps')),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    String kategori = dataBarang['kategori'] ?? 'P3K';
+    String kategori = dataBarang['kategori'] ?? 'APD';
 
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
@@ -128,25 +85,6 @@ class DetailBarangScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (kategori != 'APD' &&
-                    kategori != 'ATK' &&
-                    kategori != 'Amenities' &&
-                    currentData['foto_url'] != null &&
-                    currentData['foto_url'].toString().isNotEmpty)
-                  Container(
-                    width: double.infinity,
-                    height: 250,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      image: DecorationImage(
-                        image: NetworkImage(currentData['foto_url']),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-
-                if (kategori == 'P3K') _buildDetailP3K(context, currentData),
                 if (kategori == 'APD') ...[
                   _buildDetailApd(context, currentData),
                   _buildRiwayatPergerakanStok(riwayatStokApd),
@@ -584,170 +522,6 @@ class DetailBarangScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildDetailP3K(BuildContext context, Map<String, dynamic> data) {
-    Map<String, dynamic> items = Map<String, dynamic>.from(
-      data['checklist_items'] ?? {},
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Card(
-          elevation: 3,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Gedung/Ruang: ${data['gedung_ruang'] ?? data['lokasi'] ?? '-'}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Kapasitas: ${data['kapasitas'] ?? 0} Org'),
-                    Text('Existing: ${data['existing'] ?? '-'}'),
-                    Text('Rekomendasi: ${data['rekomendasi'] ?? '-'}'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 3,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Kelengkapan Item P3K',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const Divider(),
-                ...items.entries.map((e) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(e.key),
-                        Icon(
-                          e.value == true ? Icons.check_circle : Icons.cancel,
-                          color: e.value == true ? Colors.green : Colors.red,
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 3,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Tanggal Kadaluarsa Cairan/Obat',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const Divider(),
-                _buildInfoRow(
-                  'Aquades (25ml)',
-                  _formatDate(data['exp_aquades']),
-                ),
-                _buildInfoRow(
-                  'Povidon Iodine',
-                  _formatDate(data['exp_povidon']),
-                ),
-                _buildInfoRow('Alcohol 70%', _formatDate(data['exp_alcohol'])),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 3,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Keterangan / Temuan:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text(data['keterangan'] ?? '-'),
-                const Divider(height: 24, thickness: 1),
-                _buildKoordinatWidget(context, data),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildKoordinatWidget(
-    BuildContext context,
-    Map<String, dynamic> data,
-  ) {
-    final String lat = data['latitude']?.toString() ?? '-';
-    final String long = data['longitude']?.toString() ?? '-';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Titik Koordinat GPS:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(
-                    Icons.copy_rounded,
-                    color: Colors.grey,
-                    size: 20,
-                  ),
-                  tooltip: 'Salin Koordinat',
-                  onPressed: () => _salinKoordinat(context, lat, long),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.map_rounded,
-                    color: Colors.blue,
-                    size: 20,
-                  ),
-                  tooltip: 'Buka di Google Maps',
-                  onPressed: () => _bukaGoogleMaps(context, lat, long),
-                ),
-              ],
-            ),
-          ],
-        ),
-        Text('Latitude: $lat'),
-        Text('Longitude: $long'),
-      ],
     );
   }
 

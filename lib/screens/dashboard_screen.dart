@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'daftar_barang_screen.dart';
 import 'daftar_apar_screen.dart';
-import 'daftar_penerangan_screen.dart'; // Import halaman khusus penerangan
+import 'daftar_penerangan_screen.dart';
+import 'daftar_p3k_screen.dart'; // <-- 1. Tambahkan import P3K di sini
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -11,7 +12,6 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  // Simulasi data kategori (Nanti akan kita hubungkan ke Firestore)
   final List<Map<String, dynamic>> _kategoriList = [
     {'nama': 'APAR', 'total': 150, 'icon': Icons.fire_extinguisher},
     {'nama': 'P3K', 'total': 45, 'icon': Icons.medical_services},
@@ -25,7 +25,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     {'nama': 'Penerangan', 'total': 60, 'icon': Icons.lightbulb_outline},
   ];
 
-  // Fungsi untuk memunculkan dialog Tambah / Edit Kategori
   void _tampilkanFormKategori({String? currentName, int? index}) {
     final TextEditingController controller = TextEditingController(
       text: currentName ?? '',
@@ -54,14 +53,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               if (controller.text.isNotEmpty) {
                 setState(() {
                   if (currentName == null) {
-                    // Tambah data baru
                     _kategoriList.add({
                       'nama': controller.text,
                       'total': 0,
                       'icon': Icons.inventory,
                     });
                   } else {
-                    // Edit data
                     _kategoriList[index!]['nama'] = controller.text;
                   }
                 });
@@ -75,7 +72,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Fungsi Hapus Kategori
   void _hapusKategori(int index) {
     showDialog(
       context: context,
@@ -120,7 +116,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
-              // Kembali ke halaman login
               Navigator.pop(context);
             },
           ),
@@ -129,7 +124,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Bagian Search Bar di atas
           Container(
             padding: const EdgeInsets.all(16.0),
             color: Colors.blue.shade800,
@@ -148,7 +142,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
-
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
             child: Text(
@@ -160,8 +153,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
-
-          // List Kategori Barang (Sesuai panel Dashboard di desain)
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -202,7 +193,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Tombol Edit Jenis Barang
                         IconButton(
                           icon: const Icon(
                             Icons.edit_outlined,
@@ -214,7 +204,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             index: index,
                           ),
                         ),
-                        // Tombol Hapus Jenis Barang
                         IconButton(
                           icon: const Icon(
                             Icons.delete_outline,
@@ -241,11 +230,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         );
                       } else if (item['nama'] == 'APAR') {
-                        // <-- TAMBAHKAN KONDISI INI AGAR MEMBUKA KHUSUS APAR
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => const DaftarAparScreen(),
+                          ),
+                        );
+                      } else if (item['nama'] == 'P3K') {
+                        // <-- 2. TAMBAHKAN KONDISI INI UNTUK P3K
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const DaftarP3kScreen(),
                           ),
                         );
                       } else {
@@ -265,7 +261,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      // Tombol Tambah Kategori di sudut kanan bawah
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,

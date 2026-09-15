@@ -59,50 +59,6 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
     return '';
   }
 
-  String _getItemValue(
-    Map<String, dynamic> docData,
-    Map<String, dynamic> checklistMap,
-    List<String> fieldAliases, {
-    String defaultValue = '✓',
-  }) {
-    for (var alias in fieldAliases) {
-      if (docData.containsKey(alias) &&
-          docData[alias] != null &&
-          docData[alias].toString().trim().isNotEmpty) {
-        var val = docData[alias];
-        if (val is bool) return val ? '✓' : 'x';
-        return val.toString();
-      }
-    }
-
-    if (checklistMap.isNotEmpty) {
-      for (var alias in fieldAliases) {
-        if (checklistMap.containsKey(alias) && checklistMap[alias] != null) {
-          var val = checklistMap[alias];
-          if (val is bool) return val ? '✓' : 'x';
-          return val.toString();
-        }
-        for (var entry in checklistMap.entries) {
-          String cleanKey = entry.key
-              .toLowerCase()
-              .replaceAll(RegExp(r'[_-]'), ' ')
-              .trim();
-          String cleanAlias = alias
-              .toLowerCase()
-              .replaceAll(RegExp(r'[_-]'), ' ')
-              .trim();
-
-          if (cleanKey == cleanAlias) {
-            var val = entry.value;
-            if (val is bool) return val ? '✓' : 'x';
-            return val.toString();
-          }
-        }
-      }
-    }
-    return defaultValue;
-  }
-
   Future<void> _unduhLaporanExcel() async {
     if (_isExporting) return;
 
@@ -162,134 +118,8 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
 
       String kategoriUpper = widget.namaKategori.toUpperCase();
 
-      // EXCEL P3K
-      if (kategoriUpper.contains('P3K')) {
-        sheetObject.cell(CellIndex.indexByString('B1')).value = TextCellValue(
-          'IDENTIFIKASI KEBUTUHAN KOTAK P3K',
-        );
-        sheetObject.cell(CellIndex.indexByString('B1')).cellStyle = headerStyle;
-        sheetObject.cell(CellIndex.indexByString('B2')).value = TextCellValue(
-          'DI PT PLN (PERSERO) UPDL PANDAAN',
-        );
-        sheetObject.cell(CellIndex.indexByString('B3')).value = TextCellValue(
-          'BULAN $bulanTahun',
-        );
-
-        List<String> headersP3K = [
-          'No',
-          'Gedung/Ruang',
-          'KAPASITAS',
-          'EXISTING',
-          'REKOMENDASI',
-          'KASA STERIL',
-          'PERBAN (5CM)',
-          'PERBAN (10CM)',
-          'PLASTER (1,25CM)',
-          'PLASTER CEPAT',
-          'KAPAS',
-          'KAIN SEGTIGA',
-          'GUNTING',
-          'PENITI',
-          'SARUNG TANGAN SEKALIPAKAI',
-          'SARUNG TANGAN PASANGAN',
-          'MASKER',
-          'PINSET',
-          'LAMPU SENTER',
-          'GELAS CUCI MATA',
-          'KANTUNG PLASTIK BERSIH',
-          'AQUADES (25ML)',
-          'POVIDON',
-          'ALCOHOL 70%',
-          'BUKU PANDUAN',
-          'BUKU CATATAN',
-          'DAFTAR ISI KOTAK P3K',
-          'Kekurangan',
-          'Latitude',
-          'Longitude',
-        ];
-
-        for (int i = 0; i < headersP3K.length; i++) {
-          var cell = sheetObject.cell(
-            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 4),
-          );
-          cell.value = TextCellValue(headersP3K[i]);
-          cell.cellStyle = headerStyle;
-        }
-
-        List<List<String>> itemAliases = [
-          ['kasa_steril', 'KASA STERIL', 'kasa steril'],
-          ['perban_5cm', 'PERBAN (5CM)', 'perban 5cm'],
-          ['perban_10cm', 'PERBAN (10CM)', 'perban 10cm'],
-          ['plaster_1_25cm', 'PLASTER (1,25CM)', 'plaster 1.25cm'],
-          ['plaster_cepat', 'PLASTER CEPAT'],
-          ['kapas', 'KAPAS'],
-          ['kain_segtiga', 'KAIN SEGTIGA', 'kain segitiga'],
-          ['gunting', 'GUNTING'],
-          ['peniti', 'PENITI'],
-          ['sarung_tangan_sekalipakai', 'SARUNG TANGAN SEKALIPAKAI'],
-          ['sarung_tangan_pasangan', 'SARUNG TANGAN PASANGAN'],
-          ['masker', 'MASKER'],
-          ['pinset', 'PINSET'],
-          ['lampu_senter', 'LAMPU SENTER'],
-          ['gelas_cuci_mata', 'GELAS CUCI MATA'],
-          ['kantung_plastik_bersih', 'KANTUNG PLASTIK BERSIH'],
-          ['exp_aquades', 'AQUADES (25ML)', 'aquades'],
-          ['exp_povidon', 'POVIDON', 'povidon'],
-          ['exp_alcohol', 'ALCOHOL 70%', 'alcohol'],
-          ['buku_panduan', 'BUKU PANDUAN'],
-          ['buku_catatan', 'BUKU CATATAN'],
-          ['daftar_isi_kotak', 'DAFTAR ISI KOTAK P3K'],
-        ];
-
-        int rowIndex = 5;
-        int nomorUrut = 1;
-
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
-          Map<String, dynamic> checklistMap = Map<String, dynamic>.from(
-            data['checklist_items'] ?? {},
-          );
-
-          List<String> rowData = [
-            nomorUrut.toString(),
-            data['gedung_ruang']?.toString() ??
-                data['lokasi']?.toString() ??
-                '-',
-            data['kapasitas']?.toString() ?? '-',
-            data['existing']?.toString() ?? '-',
-            data['rekomendasi']?.toString() ?? '-',
-          ];
-
-          for (int i = 0; i < itemAliases.length; i++) {
-            rowData.add(_getItemValue(data, checklistMap, itemAliases[i]));
-          }
-
-          rowData.add(
-            data['kekurangan']?.toString() ??
-                data['keterangan']?.toString() ??
-                '-',
-          );
-          rowData.add(data['latitude']?.toString() ?? '-');
-          rowData.add(data['longitude']?.toString() ?? '-');
-
-          for (int i = 0; i < rowData.length; i++) {
-            sheetObject
-                .cell(
-                  CellIndex.indexByColumnRow(
-                    columnIndex: i,
-                    rowIndex: rowIndex,
-                  ),
-                )
-                .value = TextCellValue(
-              rowData[i],
-            );
-          }
-          rowIndex++;
-          nomorUrut++;
-        }
-
-        // EXCEL APD
-      } else if (kategoriUpper.contains('APD')) {
+      // EXCEL APD
+      if (kategoriUpper.contains('APD')) {
         sheetObject.merge(
           CellIndex.indexByString('A1'),
           CellIndex.indexByString('G1'),
@@ -654,10 +484,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                       .toUpperCase();
 
                   String searchString = '';
-                  if (kategoriData.contains('P3K')) {
-                    searchString =
-                        '${data['gedung_ruang'] ?? ''} ${data['lokasi'] ?? ''}';
-                  } else if (kategoriData.contains('APD')) {
+                  if (kategoriData.contains('APD')) {
                     searchString =
                         '${data['peralatan'] ?? data['nama_apd'] ?? data['nama_barang'] ?? ''} ${data['kondisi'] ?? ''} ${data['pembelian'] ?? ''}';
                   } else if (kategoriData.contains('ATK') ||
@@ -704,23 +531,9 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                         : '';
 
                     // ==========================================
-                    // P3K
+                    // APD (ALAT PELINDUNG DIRI)
                     // ==========================================
-                    if (kategoriData.contains('P3K')) {
-                      judulUtama =
-                          data['gedung_ruang'] ??
-                          data['lokasi'] ??
-                          'Tanpa Nama Ruangan';
-                      infoHighlight = '${data['kapasitas'] ?? 0} Org';
-                      infoSekunder = labelTanggalEdit.isNotEmpty
-                          ? labelTanggalEdit
-                          : 'Ext: ${data['existing'] ?? '-'}';
-                      isWarning = false;
-
-                      // ==========================================
-                      // APD (ALAT PELINDUNG DIRI)
-                      // ==========================================
-                    } else if (kategoriData.contains('APD')) {
+                    if (kategoriData.contains('APD')) {
                       judulUtama =
                           data['peralatan'] ??
                           data['nama_apd'] ??
@@ -848,9 +661,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                                         ),
                                   )
                                 : Icon(
-                                    kategoriData.contains('P3K')
-                                        ? Icons.medical_services
-                                        : kategoriData.contains('APD')
+                                    kategoriData.contains('APD')
                                         ? Icons.health_and_safety
                                         : kategoriData.contains('ATK')
                                         ? Icons.edit_note
