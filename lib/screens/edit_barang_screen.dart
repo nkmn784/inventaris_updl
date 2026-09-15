@@ -21,19 +21,6 @@ class EditBarangScreen extends StatefulWidget {
 }
 
 class _EditBarangScreenState extends State<EditBarangScreen> {
-  // === VARIABEL APAR ===
-  late TextEditingController _namaAlatCtrl;
-  late TextEditingController _lokasiAparCtrl;
-  late TextEditingController _noAparCtrl;
-  late TextEditingController _beratCtrl;
-  late TextEditingController _keteranganAparCtrl;
-  DateTime? _tanggalKadaluarsaApar;
-  late bool _kondisiLabel;
-  late bool _kondisiTekanan;
-  late bool _kondisiSafetyPin;
-  late bool _kondisiHandle;
-  late bool _kondisiSelang;
-
   // === VARIABEL P3K ===
   late TextEditingController _gedungRuangCtrl;
   late TextEditingController _kapasitasCtrl;
@@ -101,40 +88,12 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
   @override
   void initState() {
     super.initState();
-    _kategori = widget.dataBarang['kategori'] ?? 'APAR';
+    _kategori = widget.dataBarang['kategori'] ?? 'P3K';
     _fotoUrlLama = widget.dataBarang['foto_url'];
 
     _keteranganUpdateApdCtrl = TextEditingController();
 
-    if (_kategori == 'APAR') {
-      _namaAlatCtrl = TextEditingController(
-        text: widget.dataBarang['nama_alat'] ?? '',
-      );
-      _lokasiAparCtrl = TextEditingController(
-        text: widget.dataBarang['lokasi'] ?? '',
-      );
-      _noAparCtrl = TextEditingController(
-        text: widget.dataBarang['no_apar'] ?? '',
-      );
-      _beratCtrl = TextEditingController(
-        text: widget.dataBarang['berat'] ?? '',
-      );
-      _keteranganAparCtrl = TextEditingController(
-        text: widget.dataBarang['keterangan'] ?? '',
-      );
-
-      _kondisiLabel = widget.dataBarang['checklist_label'] ?? true;
-      _kondisiTekanan = widget.dataBarang['checklist_tekanan'] ?? true;
-      _kondisiSafetyPin = widget.dataBarang['checklist_safety_pin'] ?? true;
-      _kondisiHandle = widget.dataBarang['checklist_handle'] ?? true;
-      _kondisiSelang = widget.dataBarang['checklist_selang'] ?? true;
-
-      if (widget.dataBarang['tanggal_kadaluarsa'] != null) {
-        _tanggalKadaluarsaApar = DateTime.tryParse(
-          widget.dataBarang['tanggal_kadaluarsa'],
-        );
-      }
-    } else if (_kategori == 'P3K') {
+    if (_kategori == 'P3K') {
       _gedungRuangCtrl = TextEditingController(
         text:
             widget.dataBarang['gedung_ruang'] ??
@@ -221,8 +180,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
         _tanggalTransaksiAtk = DateTime.now();
       }
     } else if (_kategori == 'Amenities') {
-      // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities'
-      // INISIALISASI FORM AMENITIES
       _namaBarangAmenitiesCtrl = TextEditingController(
         text: widget.dataBarang['nama_barang'] ?? '',
       );
@@ -265,6 +222,19 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
   @override
   void dispose() {
     _keteranganUpdateApdCtrl.dispose();
+    if (_kategori == 'P3K') {
+      _gedungRuangCtrl.dispose();
+      _kapasitasCtrl.dispose();
+      _keteranganP3kCtrl.dispose();
+    }
+    if (_kategori == 'APD') {
+      _peralatanApdCtrl.dispose();
+      _jumlahApdCtrl.dispose();
+      _masaPakaiApdCtrl.dispose();
+      _tglKadaluarsaApdCtrl.dispose();
+      _kondisiApdCtrl.dispose();
+      _pembelianApdCtrl.dispose();
+    }
     if (_kategori == 'ATK') {
       _namaBarangAtkCtrl.dispose();
       _masukAtkCtrl.dispose();
@@ -273,7 +243,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
       _catatanAtkCtrl.dispose();
     }
     if (_kategori == 'Amenities') {
-      // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities'
       _namaBarangAmenitiesCtrl.dispose();
       _masukAmenitiesCtrl.dispose();
       _keluarAmenitiesCtrl.dispose();
@@ -283,7 +252,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
     super.dispose();
   }
 
-  // Hitung otomatis Total Stok ATK
   void _hitungTotalStokAtk() {
     int masuk = int.tryParse(_masukAtkCtrl.text) ?? 0;
     int keluar = int.tryParse(_keluarAtkCtrl.text) ?? 0;
@@ -292,7 +260,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
     });
   }
 
-  // Hitung otomatis Total Stok AMENITIES
   void _hitungTotalStokAmenities() {
     int masuk = int.tryParse(_masukAmenitiesCtrl.text) ?? 0;
     int keluar = int.tryParse(_keluarAmenitiesCtrl.text) ?? 0;
@@ -324,7 +291,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
     try {
       Map<String, dynamic> dataUpdate = {};
 
-      // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities' untuk logic upload foto
       if (_fotoBaru != null &&
           _kategori != 'APD' &&
           _kategori != 'ATK' &&
@@ -334,21 +300,7 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
         if (url != null) dataUpdate['foto_url'] = url;
       }
 
-      if (_kategori == 'APAR') {
-        dataUpdate.addAll({
-          'nama_alat': _namaAlatCtrl.text,
-          'lokasi': _lokasiAparCtrl.text,
-          'no_apar': _noAparCtrl.text,
-          'berat': _beratCtrl.text,
-          'tanggal_kadaluarsa': _tanggalKadaluarsaApar?.toIso8601String(),
-          'checklist_label': _kondisiLabel,
-          'checklist_tekanan': _kondisiTekanan,
-          'checklist_safety_pin': _kondisiSafetyPin,
-          'checklist_handle': _kondisiHandle,
-          'checklist_selang': _kondisiSelang,
-          'keterangan': _keteranganAparCtrl.text,
-        });
-      } else if (_kategori == 'P3K') {
+      if (_kategori == 'P3K') {
         dataUpdate.addAll({
           'gedung_ruang': _gedungRuangCtrl.text,
           'lokasi': _gedungRuangCtrl.text,
@@ -430,10 +382,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           ]);
         }
       } else if (_kategori == 'Amenities') {
-        // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities'
-        // ==============================================================
-        // LOGIKA UPDATE DATA & RIWAYAT PERGERAKAN STOK AMENITIES
-        // ==============================================================
         int masuk = int.tryParse(_masukAmenitiesCtrl.text) ?? 0;
         int keluar = int.tryParse(_keluarAmenitiesCtrl.text) ?? 0;
         int sisaJumlahBaru =
@@ -474,7 +422,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
         }
       }
 
-      // Riwayat Edit Umum
       Map<String, dynamic> riwayatBaru = {
         'tanggal_edit': DateTime.now().toIso8601String(),
         'aksi': 'Edit Data $_kategori',
@@ -514,7 +461,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities' untuk sembunyikan foto
             if (_kategori != 'APD' &&
                 _kategori != 'ATK' &&
                 _kategori != 'Amenities') ...[
@@ -524,11 +470,9 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
               const SizedBox(height: 16),
             ],
 
-            if (_kategori == 'APAR') _buildFormEditApar(),
             if (_kategori == 'P3K') _buildFormEditP3K(),
             if (_kategori == 'APD') _buildFormEditApd(),
             if (_kategori == 'ATK') _buildFormEditAtk(),
-            // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities' agar form tampil
             if (_kategori == 'Amenities') _buildFormEditAmenities(),
 
             const SizedBox(height: 32),
@@ -551,9 +495,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
     );
   }
 
-  // ==========================================
-  // WIDGET FORM EDIT AMENITIES
-  // ==========================================
   Widget _buildFormEditAmenities() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -563,8 +504,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-
-        // 1. Informasi Barang & Satuan
         TextField(
           controller: _namaBarangAmenitiesCtrl,
           decoration: const InputDecoration(
@@ -585,8 +524,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           onChanged: (val) => setState(() => _satuanAmenitiesTerpilih = val!),
         ),
         const SizedBox(height: 16),
-
-        // 2. Transaksi & Penyesuaian Stok
         const Text(
           'Data Transaksi / Pergerakan Barang',
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -649,8 +586,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           ],
         ),
         const SizedBox(height: 16),
-
-        // 3. Info Stok (Otomatis)
         TextField(
           controller: _sisaJumlahAmenitiesCtrl,
           readOnly: true,
@@ -665,8 +600,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         const SizedBox(height: 16),
-
-        // 4. Catatan / Keterangan
         TextField(
           controller: _catatanAmenitiesCtrl,
           maxLines: 2,
@@ -680,9 +613,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
     );
   }
 
-  // ==========================================
-  // WIDGET FORM EDIT ATK
-  // ==========================================
   Widget _buildFormEditAtk() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -692,8 +622,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-
-        // 1. Informasi Barang & Satuan
         TextField(
           controller: _namaBarangAtkCtrl,
           decoration: const InputDecoration(
@@ -714,8 +642,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           onChanged: (val) => setState(() => _satuanAtkTerpilih = val!),
         ),
         const SizedBox(height: 16),
-
-        // 2. Transaksi & Penyesuaian Stok
         const Text(
           'Data Transaksi / Pergerakan Barang',
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -775,8 +701,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           ],
         ),
         const SizedBox(height: 16),
-
-        // 3. Info Stok (Otomatis)
         TextField(
           controller: _sisaJumlahAtkCtrl,
           readOnly: true,
@@ -791,8 +715,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         const SizedBox(height: 16),
-
-        // 4. Catatan / Keterangan
         TextField(
           controller: _catatanAtkCtrl,
           maxLines: 2,
@@ -806,9 +728,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
     );
   }
 
-  // ==========================================
-  // WIDGET FORM APD
-  // ==========================================
   Widget _buildFormEditApd() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -910,122 +829,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
               ),
             ),
           ],
-        ),
-      ],
-    );
-  }
-
-  // ==========================================
-  // WIDGET FORM APAR & P3K
-  // ==========================================
-  Widget _buildFormEditApar() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: _namaAlatCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Nama Alat / Merk',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _lokasiAparCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Lokasi Penempatan',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _noAparCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'No APAR',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: TextField(
-                controller: _beratCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Berat (Kg)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Tanggal Kadaluarsa APAR',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        InkWell(
-          onTap: () async {
-            DateTime? d = await _selectDate(context, _tanggalKadaluarsaApar);
-            if (d != null) setState(() => _tanggalKadaluarsaApar = d);
-          },
-          child: InputDecorator(
-            decoration: const InputDecoration(border: OutlineInputBorder()),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _tanggalKadaluarsaApar == null
-                      ? 'Pilih Tanggal'
-                      : '${_tanggalKadaluarsaApar!.day}-${_tanggalKadaluarsaApar!.month}-${_tanggalKadaluarsaApar!.year}',
-                ),
-                const Icon(Icons.calendar_month, color: Colors.redAccent),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Checklist Kondisi:',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        CheckboxListTile(
-          title: const Text('Label Pengisian'),
-          value: _kondisiLabel,
-          onChanged: (val) => setState(() => _kondisiLabel = val!),
-        ),
-        CheckboxListTile(
-          title: const Text('Tekanan (Jarum Hijau)'),
-          value: _kondisiTekanan,
-          onChanged: (val) => setState(() => _kondisiTekanan = val!),
-        ),
-        CheckboxListTile(
-          title: const Text('Safety Pin'),
-          value: _kondisiSafetyPin,
-          onChanged: (val) => setState(() => _kondisiSafetyPin = val!),
-        ),
-        CheckboxListTile(
-          title: const Text('Handle'),
-          value: _kondisiHandle,
-          onChanged: (val) => setState(() => _kondisiHandle = val!),
-        ),
-        CheckboxListTile(
-          title: const Text('Selang & Nozzle'),
-          value: _kondisiSelang,
-          onChanged: (val) => setState(() => _kondisiSelang = val!),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _keteranganAparCtrl,
-          maxLines: 2,
-          decoration: const InputDecoration(
-            labelText: 'Keterangan',
-            border: OutlineInputBorder(),
-          ),
         ),
       ],
     );

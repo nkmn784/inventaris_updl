@@ -14,26 +14,9 @@ class TambahBarangScreen extends StatefulWidget {
 }
 
 class _TambahBarangScreenState extends State<TambahBarangScreen> {
-  String _kategoriTerpilih = 'APAR';
-  // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities'
-  final List<String> _listKategori = ['APAR', 'P3K', 'APD', 'ATK', 'Amenities'];
+  String _kategoriTerpilih = 'P3K';
+  final List<String> _listKategori = ['P3K', 'APD', 'ATK', 'Amenities'];
   bool _isLoading = false;
-
-  // ==========================================
-  // FORM FIELD APAR
-  // ==========================================
-  final _namaAlatCtrl = TextEditingController();
-  final _lokasiCtrl = TextEditingController();
-  final _noAparCtrl = TextEditingController();
-  final _beratCtrl = TextEditingController();
-  final _keteranganAparCtrl = TextEditingController();
-  DateTime? _tanggalKadaluarsaApar;
-
-  bool _kondisiLabel = true;
-  bool _kondisiTekanan = true;
-  bool _kondisiSafetyPin = true;
-  bool _kondisiHandle = true;
-  bool _kondisiSelang = true;
 
   // ==========================================
   // FORM FIELD P3K
@@ -170,11 +153,6 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
 
   @override
   void dispose() {
-    _namaAlatCtrl.dispose();
-    _lokasiCtrl.dispose();
-    _noAparCtrl.dispose();
-    _beratCtrl.dispose();
-    _keteranganAparCtrl.dispose();
     _gedungRuangCtrl.dispose();
     _kapasitasCtrl.dispose();
     _keteranganP3kCtrl.dispose();
@@ -235,19 +213,16 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
             const Divider(thickness: 2),
             const SizedBox(height: 16),
 
-            if (_kategoriTerpilih == 'APAR') _buildFormApar(),
             if (_kategoriTerpilih == 'P3K') _buildFormP3K(),
             if (_kategoriTerpilih == 'APD') _buildFormApd(),
             if (_kategoriTerpilih == 'ATK') _buildFormAtk(),
-            if (_kategoriTerpilih == 'Amenities')
-              _buildFormAmenities(), // PERBAIKAN
+            if (_kategoriTerpilih == 'Amenities') _buildFormAmenities(),
 
             const SizedBox(height: 24),
 
             if (_kategoriTerpilih != 'APD' &&
                 _kategoriTerpilih != 'ATK' &&
                 _kategoriTerpilih != 'Amenities') ...[
-              // PERBAIKAN
               _buildFotoWidget(),
               const SizedBox(height: 16),
               _buildLocationButton(),
@@ -480,107 +455,6 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
   }
 
   // ==========================================
-  // WIDGET FORM APAR
-  // ==========================================
-  Widget _buildFormApar() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: _namaAlatCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Nama Alat / Merk / Jenis Media',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _lokasiCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Lokasi Penempatan',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _noAparCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'No APAR',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: TextField(
-                controller: _beratCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Berat (Kg)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Tanggal Kadaluarsa APAR',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        _buildDateField(
-          'Pilih Tanggal',
-          _tanggalKadaluarsaApar,
-          (d) => setState(() => _tanggalKadaluarsaApar = d),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Checklist Kondisi:',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        CheckboxListTile(
-          title: const Text('Label Pengisian'),
-          value: _kondisiLabel,
-          onChanged: (val) => setState(() => _kondisiLabel = val!),
-        ),
-        CheckboxListTile(
-          title: const Text('Tekanan (Jarum Hijau)'),
-          value: _kondisiTekanan,
-          onChanged: (val) => setState(() => _kondisiTekanan = val!),
-        ),
-        CheckboxListTile(
-          title: const Text('Safety Pin'),
-          value: _kondisiSafetyPin,
-          onChanged: (val) => setState(() => _kondisiSafetyPin = val!),
-        ),
-        CheckboxListTile(
-          title: const Text('Handle'),
-          value: _kondisiHandle,
-          onChanged: (val) => setState(() => _kondisiHandle = val!),
-        ),
-        CheckboxListTile(
-          title: const Text('Selang & Nozzle'),
-          value: _kondisiSelang,
-          onChanged: (val) => setState(() => _kondisiSelang = val!),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _keteranganAparCtrl,
-          maxLines: 2,
-          decoration: const InputDecoration(
-            labelText: 'Keterangan',
-            border: OutlineInputBorder(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ==========================================
   // WIDGET FORM P3K
   // ==========================================
   Widget _buildFormP3K() {
@@ -800,7 +674,6 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
           _kategoriTerpilih != 'APD' &&
           _kategoriTerpilih != 'ATK' &&
           _kategoriTerpilih != 'Amenities') {
-        // PERBAIKAN
         final bytes = await _foto!.readAsBytes();
         fotoUrl = await CloudinaryService().uploadImageBytes(bytes);
       }
@@ -820,23 +693,6 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
           'exp_povidon': _expPovidon?.toIso8601String(),
           'exp_alcohol': _expAlcohol?.toIso8601String(),
           'keterangan': _keteranganP3kCtrl.text,
-          'latitude': _latitude,
-          'longitude': _longitude,
-        };
-      } else if (_kategoriTerpilih == 'APAR') {
-        dataSimpan = {
-          'kategori': 'APAR',
-          'nama_alat': _namaAlatCtrl.text,
-          'lokasi': _lokasiCtrl.text,
-          'no_apar': _noAparCtrl.text,
-          'berat': _beratCtrl.text,
-          'tanggal_kadaluarsa': _tanggalKadaluarsaApar?.toIso8601String(),
-          'checklist_label': _kondisiLabel,
-          'checklist_tekanan': _kondisiTekanan,
-          'checklist_safety_pin': _kondisiSafetyPin,
-          'checklist_handle': _kondisiHandle,
-          'checklist_selang': _kondisiSelang,
-          'keterangan': _keteranganAparCtrl.text,
           'latitude': _latitude,
           'longitude': _longitude,
         };
@@ -864,10 +720,9 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
           'tanggal_transaksi': DateTime.now().toIso8601String(),
         };
       } else if (_kategoriTerpilih == 'Amenities') {
-        // PERBAIKAN
         int jmlInput = int.tryParse(_jumlahAmenitiesCtrl.text) ?? 0;
         dataSimpan = {
-          'kategori': 'Amenities', // PERBAIKAN
+          'kategori': 'Amenities',
           'nama_barang': _namaAmenitiesCtrl.text,
           'lokasi': '-',
           'jumlah': jmlInput,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'daftar_barang_screen.dart';
+import 'daftar_apar_screen.dart';
 import 'daftar_penerangan_screen.dart'; // Import halaman khusus penerangan
 
 class DashboardScreen extends StatefulWidget {
@@ -237,6 +238,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           MaterialPageRoute(
                             builder: (context) =>
                                 const DaftarPeneranganScreen(),
+                          ),
+                        );
+                      } else if (item['nama'] == 'APAR') {
+                        // <-- TAMBAHKAN KONDISI INI AGAR MEMBUKA KHUSUS APAR
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const DaftarAparScreen(),
                           ),
                         );
                       } else {

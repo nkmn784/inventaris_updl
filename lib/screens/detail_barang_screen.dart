@@ -68,7 +68,7 @@ class DetailBarangScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String kategori = dataBarang['kategori'] ?? 'APAR';
+    String kategori = dataBarang['kategori'] ?? 'P3K';
 
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
@@ -94,7 +94,6 @@ class DetailBarangScreen extends StatelessWidget {
 
         final currentData = snapshot.data!.data() as Map<String, dynamic>;
 
-        // Ambil data riwayat pergerakan stok
         List<dynamic> riwayatStokApd = currentData['riwayat_jumlah_apd'] ?? [];
         List<dynamic> riwayatStokAtk = currentData['riwayat_stok_atk'] ?? [];
         List<dynamic> riwayatStokAmenities =
@@ -129,7 +128,6 @@ class DetailBarangScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities' agar foto tersembunyi dengan benar
                 if (kategori != 'APD' &&
                     kategori != 'ATK' &&
                     kategori != 'Amenities' &&
@@ -148,7 +146,6 @@ class DetailBarangScreen extends StatelessWidget {
                     ),
                   ),
 
-                if (kategori == 'APAR') _buildDetailApar(context, currentData),
                 if (kategori == 'P3K') _buildDetailP3K(context, currentData),
                 if (kategori == 'APD') ...[
                   _buildDetailApd(context, currentData),
@@ -158,7 +155,6 @@ class DetailBarangScreen extends StatelessWidget {
                   _buildDetailAtk(context, currentData),
                   _buildRiwayatPergerakanStok(riwayatStokAtk),
                 ],
-                // PERBAIKAN: Mengubah 'AMENITIES' menjadi 'Amenities' agar widget muncul
                 if (kategori == 'Amenities') ...[
                   _buildDetailAmenities(context, currentData),
                   _buildRiwayatPergerakanStok(riwayatStokAmenities),
@@ -171,9 +167,6 @@ class DetailBarangScreen extends StatelessWidget {
     );
   }
 
-  // ==========================================
-  // WIDGET DETAIL AMENITIES
-  // ==========================================
   Widget _buildDetailAmenities(
     BuildContext context,
     Map<String, dynamic> data,
@@ -181,7 +174,6 @@ class DetailBarangScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Informasi Barang
         Card(
           elevation: 3,
           child: Padding(
@@ -203,8 +195,6 @@ class DetailBarangScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-
-        // 2. Data Transaksi
         Card(
           elevation: 3,
           child: Padding(
@@ -234,8 +224,6 @@ class DetailBarangScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-
-        // 3. Sisa Persediaan / Jumlah Stock
         Card(
           elevation: 3,
           color: Colors.blue.shade50,
@@ -274,8 +262,6 @@ class DetailBarangScreen extends StatelessWidget {
             ),
           ),
         ),
-
-        // 4. Catatan (Muncul jika ada isinya saja)
         if ((data['keterangan'] ?? data['catatan']) != null &&
             (data['keterangan'] ?? data['catatan']).toString().isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -304,14 +290,10 @@ class DetailBarangScreen extends StatelessWidget {
     );
   }
 
-  // ==========================================
-  // WIDGET DETAIL ATK
-  // ==========================================
   Widget _buildDetailAtk(BuildContext context, Map<String, dynamic> data) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Informasi Barang
         Card(
           elevation: 3,
           child: Padding(
@@ -333,8 +315,6 @@ class DetailBarangScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-
-        // 2. Data Transaksi
         Card(
           elevation: 3,
           child: Padding(
@@ -364,8 +344,6 @@ class DetailBarangScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-
-        // 3. Sisa Persediaan / Jumlah Stock
         Card(
           elevation: 3,
           color: Colors.blue.shade50,
@@ -404,8 +382,6 @@ class DetailBarangScreen extends StatelessWidget {
             ),
           ),
         ),
-
-        // 4. Catatan (Muncul jika ada isinya saja)
         if ((data['keterangan'] ?? data['catatan']) != null &&
             (data['keterangan'] ?? data['catatan']).toString().isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -434,9 +410,6 @@ class DetailBarangScreen extends StatelessWidget {
     );
   }
 
-  // ==========================================
-  // WIDGET RIWAYAT PERGERAKAN STOK
-  // ==========================================
   Widget _buildRiwayatPergerakanStok(List<dynamic> riwayatStok) {
     if (riwayatStok.isEmpty) return const SizedBox.shrink();
 
@@ -456,10 +429,7 @@ class DetailBarangScreen extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: riwayatStok.length,
           itemBuilder: (context, index) {
-            // Tampilkan dari riwayat terbaru (paling atas)
             final riwayat = riwayatStok[riwayatStok.length - 1 - index];
-
-            // 1. Format Tanggal dan Jam
             String dateString = riwayat['tanggal'] ?? riwayat['tgl'] ?? '';
             String tglFormat = dateString;
             try {
@@ -472,7 +442,6 @@ class DetailBarangScreen extends StatelessWidget {
               tglFormat = dateString;
             }
 
-            // 2. Format Pergerakan Stok (Masuk / Keluar)
             int masuk = int.tryParse(riwayat['masuk']?.toString() ?? '0') ?? 0;
             int keluar =
                 int.tryParse(riwayat['keluar']?.toString() ?? '0') ?? 0;
@@ -615,95 +584,6 @@ class DetailBarangScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildDetailApar(BuildContext context, Map<String, dynamic> data) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Card(
-          elevation: 3,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  data['nama_alat'] ?? 'Tanpa Nama',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on, color: Colors.red, size: 20),
-                    const SizedBox(width: 8),
-                    Text(data['lokasi'] ?? 'Lokasi tidak diketahui'),
-                  ],
-                ),
-                const Divider(height: 24, thickness: 1),
-                _buildInfoRow('No APAR', data['no_apar'] ?? '-'),
-                _buildInfoRow('Berat', '${data['berat'] ?? '-'} Kg'),
-                _buildInfoRow(
-                  'Tanggal Kadaluarsa',
-                  _formatDate(data['tanggal_kadaluarsa']),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 3,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Checklist Kondisi:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const Divider(),
-                _buildChecklistItem('Label Pengisian', data['checklist_label']),
-                _buildChecklistItem(
-                  'Tekanan (Jarum Hijau)',
-                  data['checklist_tekanan'],
-                ),
-                _buildChecklistItem('Safety Pin', data['checklist_safety_pin']),
-                _buildChecklistItem('Handle', data['checklist_handle']),
-                _buildChecklistItem(
-                  'Selang & Nozzle',
-                  data['checklist_selang'],
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 3,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Keterangan:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text(data['keterangan'] ?? 'Tidak ada keterangan'),
-                const Divider(height: 24, thickness: 1),
-                _buildKoordinatWidget(context, data),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -879,24 +759,6 @@ class DetailBarangScreen extends StatelessWidget {
         children: [
           Text(label, style: const TextStyle(color: Colors.grey)),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChecklistItem(String title, bool? value) {
-    bool isTrue = value ?? false;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        children: [
-          Icon(
-            isTrue ? Icons.check_circle : Icons.cancel,
-            color: isTrue ? Colors.green : Colors.red,
-            size: 20,
-          ),
-          const SizedBox(width: 8),
-          Text(title),
         ],
       ),
     );

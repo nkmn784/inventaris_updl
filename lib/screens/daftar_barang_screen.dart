@@ -38,7 +38,6 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
     return listBulan[bulan - 1];
   }
 
-  // Helper untuk format tanggal terakhir di-edit
   String _formatTanggalEdit(Map<String, dynamic> data) {
     dynamic val =
         data['updated_at'] ??
@@ -104,9 +103,6 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
     return defaultValue;
   }
 
-  // ==========================================
-  // EXPORT EXCEL
-  // ==========================================
   Future<void> _unduhLaporanExcel() async {
     if (_isExporting) return;
 
@@ -163,111 +159,11 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
 
       DateTime now = DateTime.now();
       String bulanTahun = '${_namaBulan(now.month).toUpperCase()} ${now.year}';
-      String tanggalHariIni =
-          '${now.day.toString().padLeft(2, '0')} ${_namaBulan(now.month)} ${now.year}';
 
       String kategoriUpper = widget.namaKategori.toUpperCase();
 
-      // EXCEL APAR
-      if (kategoriUpper.contains('APAR')) {
-        sheetObject.cell(CellIndex.indexByString('C1')).value = TextCellValue(
-          'ALAT PEMADAM API RINGAN (APAR)',
-        );
-        sheetObject.cell(CellIndex.indexByString('C1')).cellStyle = headerStyle;
-        sheetObject.cell(CellIndex.indexByString('C2')).value = TextCellValue(
-          'BULAN / TAHUN : $bulanTahun',
-        );
-
-        sheetObject.cell(CellIndex.indexByString('A4')).value = TextCellValue(
-          'Pemeriksa',
-        );
-        sheetObject.cell(CellIndex.indexByString('C4')).value = TextCellValue(
-          ': Arya Junadi',
-        );
-        sheetObject.cell(CellIndex.indexByString('A5')).value = TextCellValue(
-          'Tanggal Pemeriksaan',
-        );
-        sheetObject.cell(CellIndex.indexByString('C5')).value = TextCellValue(
-          ': $tanggalHariIni',
-        );
-
-        List<String> headers = [
-          'NO',
-          'LOKASI',
-          'NAMA ALAT (MERK)',
-          'NO APAR',
-          'BERAT (KG)',
-          'TGL KADALUARSA',
-          'Label Pengisian',
-          'Tekanan',
-          'Safety Pin',
-          'Handle',
-          'Selang & Nozzle',
-          'Keterangan',
-          'Latitude',
-          'Longitude',
-        ];
-
-        for (int i = 0; i < headers.length; i++) {
-          var cell = sheetObject.cell(
-            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 6),
-          );
-          cell.value = TextCellValue(headers[i]);
-          cell.cellStyle = headerStyle;
-        }
-
-        int rowIndex = 7;
-        int nomorUrut = 1;
-
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
-
-          String setCeklis(dynamic val) {
-            if (val == true) return '✓';
-            if (val == false) return 'x';
-            return '-';
-          }
-
-          String rawTgl = data['tanggal_kadaluarsa']?.toString() ?? '-';
-          String tglClean = rawTgl.contains('T')
-              ? rawTgl.split('T')[0]
-              : rawTgl;
-
-          List<String> rowData = [
-            nomorUrut.toString(),
-            data['lokasi']?.toString() ?? '-',
-            data['nama_alat']?.toString() ?? '-',
-            data['no_apar']?.toString() ?? '-',
-            data['berat']?.toString() ?? '-',
-            tglClean,
-            setCeklis(data['checklist_label']),
-            setCeklis(data['checklist_tekanan']),
-            setCeklis(data['checklist_safety_pin']),
-            setCeklis(data['checklist_handle']),
-            setCeklis(data['checklist_selang']),
-            data['keterangan']?.toString() ?? '-',
-            data['latitude']?.toString() ?? '-',
-            data['longitude']?.toString() ?? '-',
-          ];
-
-          for (int i = 0; i < rowData.length; i++) {
-            sheetObject
-                .cell(
-                  CellIndex.indexByColumnRow(
-                    columnIndex: i,
-                    rowIndex: rowIndex,
-                  ),
-                )
-                .value = TextCellValue(
-              rowData[i],
-            );
-          }
-          rowIndex++;
-          nomorUrut++;
-        }
-
-        // EXCEL P3K
-      } else if (kategoriUpper.contains('P3K')) {
+      // EXCEL P3K
+      if (kategoriUpper.contains('P3K')) {
         sheetObject.cell(CellIndex.indexByString('B1')).value = TextCellValue(
           'IDENTIFIKASI KEBUTUHAN KOTAK P3K',
         );
@@ -449,10 +345,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
               CellIndex.indexByColumnRow(columnIndex: i, rowIndex: rowIndex),
             );
             cell.value = TextCellValue(rowData[i]);
-
-            if (i != 1) {
-              cell.cellStyle = centerAlign;
-            }
+            if (i != 1) cell.cellStyle = centerAlign;
           }
           rowIndex++;
           nomorUrut++;
@@ -460,7 +353,6 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
 
         rowIndex += 2;
         String tanggalTTD = '${now.day} ${_namaBulan(now.month)} ${now.year}';
-
         sheetObject.merge(
           CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex),
           CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex),
@@ -508,22 +400,24 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                 .cellStyle =
             centerAlign;
 
-        // EXCEL ATK
-      } else if (kategoriUpper.contains('ATK')) {
+        // EXCEL ATK & AMENITIES
+      } else if (kategoriUpper.contains('ATK') ||
+          kategoriUpper.contains('AMENITIES')) {
+        String title = kategoriUpper.contains('ATK')
+            ? 'LAPORAN INVENTARIS ALAT TULIS KANTOR (ATK)'
+            : 'LAPORAN INVENTARIS AMENITIES';
+
         sheetObject.merge(
           CellIndex.indexByString('A1'),
           CellIndex.indexByString('G1'),
-          customValue: TextCellValue(
-            'LAPORAN INVENTARIS ALAT TULIS KANTOR (ATK)',
-          ),
+          customValue: TextCellValue(title),
         );
         sheetObject.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
-
         sheetObject.cell(CellIndex.indexByString('A2')).value = TextCellValue(
           'BULAN / TAHUN : $bulanTahun',
         );
 
-        List<String> headersATK = [
+        List<String> headers = [
           'No.',
           'Nama Barang',
           'Jumlah',
@@ -533,11 +427,11 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
           'Keterangan',
         ];
 
-        for (int i = 0; i < headersATK.length; i++) {
+        for (int i = 0; i < headers.length; i++) {
           var cell = sheetObject.cell(
             CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3),
           );
-          cell.value = TextCellValue(headersATK[i]);
+          cell.value = TextCellValue(headers[i]);
           cell.cellStyle = headerStyle;
         }
 
@@ -566,75 +460,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
               CellIndex.indexByColumnRow(columnIndex: i, rowIndex: rowIndex),
             );
             cell.value = TextCellValue(rowData[i]);
-
-            if (i != 1) {
-              cell.cellStyle = centerAlign;
-            }
-          }
-          rowIndex++;
-          nomorUrut++;
-        }
-
-        // EXCEL AMENITIES
-      } else if (kategoriUpper.contains('AMENITIES')) {
-        sheetObject.merge(
-          CellIndex.indexByString('A1'),
-          CellIndex.indexByString('G1'),
-          customValue: TextCellValue('LAPORAN INVENTARIS AMENITIES'),
-        );
-        sheetObject.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
-
-        sheetObject.cell(CellIndex.indexByString('A2')).value = TextCellValue(
-          'BULAN / TAHUN : $bulanTahun',
-        );
-
-        List<String> headersAmenities = [
-          'No.',
-          'Nama Barang',
-          'Jumlah',
-          'Satuan',
-          'Lokasi / Ruang',
-          'Kondisi',
-          'Keterangan',
-        ];
-
-        for (int i = 0; i < headersAmenities.length; i++) {
-          var cell = sheetObject.cell(
-            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3),
-          );
-          cell.value = TextCellValue(headersAmenities[i]);
-          cell.cellStyle = headerStyle;
-        }
-
-        int rowIndex = 4;
-        int nomorUrut = 1;
-
-        String formatData(dynamic data) {
-          if (data == null || data.toString().trim().isEmpty) return '-';
-          return data.toString();
-        }
-
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
-          List<String> rowData = [
-            nomorUrut.toString(),
-            formatData(data['nama_barang'] ?? data['nama_atk'] ?? data['nama']),
-            formatData(data['jumlah'] ?? data['stok'] ?? data['qty']),
-            formatData(data['satuan']),
-            formatData(data['lokasi'] ?? data['gedung_ruang']),
-            formatData(data['kondisi']),
-            formatData(data['keterangan']),
-          ];
-
-          for (int i = 0; i < rowData.length; i++) {
-            var cell = sheetObject.cell(
-              CellIndex.indexByColumnRow(columnIndex: i, rowIndex: rowIndex),
-            );
-            cell.value = TextCellValue(rowData[i]);
-
-            if (i != 1) {
-              cell.cellStyle = centerAlign;
-            }
+            if (i != 1) cell.cellStyle = centerAlign;
           }
           rowIndex++;
           nomorUrut++;
@@ -796,13 +622,11 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-
                 if (snapshot.hasError) {
                   return const Center(
                     child: Text('Terjadi kesalahan saat memuat data.'),
                   );
                 }
-
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return Center(
                     child: Column(
@@ -830,10 +654,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                       .toUpperCase();
 
                   String searchString = '';
-                  if (kategoriData.contains('APAR')) {
-                    searchString =
-                        '${data['nama_alat'] ?? ''} ${data['no_apar'] ?? ''} ${data['lokasi'] ?? ''}';
-                  } else if (kategoriData.contains('P3K')) {
+                  if (kategoriData.contains('P3K')) {
                     searchString =
                         '${data['gedung_ruang'] ?? ''} ${data['lokasi'] ?? ''}';
                   } else if (kategoriData.contains('APD')) {
@@ -877,31 +698,15 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                     bool isWarning = false;
                     String? imageUrl = data['foto_url'];
 
-                    // Format Tanggal Edit Terakhir
                     String tglEdit = _formatTanggalEdit(data);
                     String labelTanggalEdit = tglEdit.isNotEmpty
                         ? 'Diubah: $tglEdit'
                         : '';
 
                     // ==========================================
-                    // APAR
+                    // P3K
                     // ==========================================
-                    if (kategoriData.contains('APAR')) {
-                      // DIUBAH: Menampilkan No APAR sebagai judul utama
-                      judulUtama = 'APAR No. ${data['no_apar'] ?? '-'}';
-                      // DIUBAH: Menampilkan berat sebagai highlight
-                      infoHighlight = '${data['berat'] ?? '-'} Kg';
-                      // DIUBAH: Menampilkan lokasi di bawah judul/highlight
-                      infoSekunder = 'Lokasi: ${data['lokasi'] ?? '-'}';
-
-                      bool tekananAman = data['checklist_tekanan'] ?? true;
-                      bool pinAman = data['checklist_safety_pin'] ?? true;
-                      isWarning = (!tekananAman || !pinAman);
-
-                      // ==========================================
-                      // P3K
-                      // ==========================================
-                    } else if (kategoriData.contains('P3K')) {
+                    if (kategoriData.contains('P3K')) {
                       judulUtama =
                           data['gedung_ruang'] ??
                           data['lokasi'] ??
@@ -921,7 +726,6 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                           data['nama_apd'] ??
                           data['nama_barang'] ??
                           'APD Tanpa Nama';
-
                       dynamic rawJml =
                           data['jumlah'] ?? data['stok'] ?? data['qty'];
                       infoHighlight = 'Jml: ${rawJml ?? 0}';
@@ -951,7 +755,6 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                           data['nama_atk'] ??
                           data['nama'] ??
                           'Tanpa Nama';
-
                       dynamic rawJml =
                           data['sisa_jumlah'] ??
                           data['stok_sekarang'] ??
@@ -965,7 +768,6 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                               data['satuan'].toString().trim().isNotEmpty)
                           ? ' ${data['satuan']}'
                           : '';
-
                       infoHighlight = 'Jml: $rawJml$satuan';
 
                       String tglTransaksi = '';
@@ -1009,13 +811,11 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                           data['nama'] ??
                           data['nama_alat'] ??
                           'Barang Tanpa Nama';
-
                       dynamic rawJml =
                           data['jumlah'] ?? data['stok'] ?? data['qty'];
                       infoHighlight = rawJml != null
                           ? 'Jml: $rawJml'
                           : (data['kondisi']?.toString() ?? 'Aktif');
-
                       infoSekunder = labelTanggalEdit.isNotEmpty
                           ? labelTanggalEdit
                           : '${data['lokasi'] ?? '-'}';
@@ -1048,9 +848,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                                         ),
                                   )
                                 : Icon(
-                                    kategoriData.contains('APAR')
-                                        ? Icons.fire_extinguisher
-                                        : kategoriData.contains('P3K')
+                                    kategoriData.contains('P3K')
                                         ? Icons.medical_services
                                         : kategoriData.contains('APD')
                                         ? Icons.health_and_safety
