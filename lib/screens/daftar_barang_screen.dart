@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:excel/excel.dart';
+import 'package:excel/excel.dart' as exc;
 import 'package:file_saver/file_saver.dart';
 import '../services/firestore_service.dart';
 import 'tambah_barang_screen.dart';
@@ -99,33 +99,33 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
         return;
       }
 
-      var excel = Excel.createExcel();
+      var excel = exc.Excel.createExcel();
       String sheetName = widget.namaKategori;
       String defaultSheet = excel.getDefaultSheet() ?? 'Sheet1';
-      excel.rename(defaultSheet, sheetName);
-      Sheet sheetObject = excel[sheetName];
+      String kategoriUpper = widget.namaKategori.toUpperCase();
 
-      CellStyle headerStyle = CellStyle(
+      exc.CellStyle headerStyle = exc.CellStyle(
         bold: true,
-        horizontalAlign: HorizontalAlign.Center,
-      );
-      CellStyle centerAlign = CellStyle(
-        horizontalAlign: HorizontalAlign.Center,
+        horizontalAlign: exc.HorizontalAlign.Center,
       );
 
       DateTime now = DateTime.now();
       String bulanTahun = '${_namaBulan(now.month).toUpperCase()} ${now.year}';
 
-      String kategoriUpper = widget.namaKategori.toUpperCase();
-
+      // ==============================================================
       // EXCEL APD
+      // ==============================================================
       if (kategoriUpper.contains('APD')) {
+        excel.rename(defaultSheet, sheetName);
+        exc.Sheet sheetObject = excel[sheetName];
+
         sheetObject.merge(
-          CellIndex.indexByString('A1'),
-          CellIndex.indexByString('G1'),
-          customValue: TextCellValue('INVENTARIS PERALATAN K3 (APD)'),
+          exc.CellIndex.indexByString('A1'),
+          exc.CellIndex.indexByString('G1'),
+          customValue: exc.TextCellValue('INVENTARIS PERALATAN K3 (APD)'),
         );
-        sheetObject.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
+        sheetObject.cell(exc.CellIndex.indexByString('A1')).cellStyle =
+            headerStyle;
 
         List<String> headersAPD = [
           'No.',
@@ -139,9 +139,9 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
 
         for (int i = 0; i < headersAPD.length; i++) {
           var cell = sheetObject.cell(
-            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 2),
+            exc.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 2),
           );
-          cell.value = TextCellValue(headersAPD[i]);
+          cell.value = exc.TextCellValue(headersAPD[i]);
           cell.cellStyle = headerStyle;
         }
 
@@ -172,10 +172,16 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
 
           for (int i = 0; i < rowData.length; i++) {
             var cell = sheetObject.cell(
-              CellIndex.indexByColumnRow(columnIndex: i, rowIndex: rowIndex),
+              exc.CellIndex.indexByColumnRow(
+                columnIndex: i,
+                rowIndex: rowIndex,
+              ),
             );
-            cell.value = TextCellValue(rowData[i]);
-            if (i != 1) cell.cellStyle = centerAlign;
+            cell.value = exc.TextCellValue(rowData[i]);
+            if (i != 1)
+              cell.cellStyle = exc.CellStyle(
+                horizontalAlign: exc.HorizontalAlign.Center,
+              );
           }
           rowIndex++;
           nomorUrut++;
@@ -184,127 +190,380 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
         rowIndex += 2;
         String tanggalTTD = '${now.day} ${_namaBulan(now.month)} ${now.year}';
         sheetObject.merge(
-          CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex),
-          CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex),
-          customValue: TextCellValue(tanggalTTD),
+          exc.CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex),
+          exc.CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex),
+          customValue: exc.TextCellValue(tanggalTTD),
         );
         sheetObject
-                .cell(
-                  CellIndex.indexByColumnRow(
-                    columnIndex: 5,
-                    rowIndex: rowIndex,
-                  ),
-                )
-                .cellStyle =
-            centerAlign;
+            .cell(
+              exc.CellIndex.indexByColumnRow(
+                columnIndex: 5,
+                rowIndex: rowIndex,
+              ),
+            )
+            .cellStyle = exc.CellStyle(
+          horizontalAlign: exc.HorizontalAlign.Center,
+        );
 
         rowIndex++;
         sheetObject.merge(
-          CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex),
-          CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex),
-          customValue: TextCellValue('TL K3L & KAM'),
+          exc.CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex),
+          exc.CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex),
+          customValue: exc.TextCellValue('TL K3L & KAM'),
         );
         sheetObject
-                .cell(
-                  CellIndex.indexByColumnRow(
-                    columnIndex: 5,
-                    rowIndex: rowIndex,
-                  ),
-                )
-                .cellStyle =
-            centerAlign;
+            .cell(
+              exc.CellIndex.indexByColumnRow(
+                columnIndex: 5,
+                rowIndex: rowIndex,
+              ),
+            )
+            .cellStyle = exc.CellStyle(
+          horizontalAlign: exc.HorizontalAlign.Center,
+        );
 
         rowIndex += 4;
         sheetObject.merge(
-          CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex),
-          CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex),
-          customValue: TextCellValue('ANUGRA PUTRA PERMANA'),
+          exc.CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex),
+          exc.CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex),
+          customValue: exc.TextCellValue('ANUGRA PUTRA PERMANA'),
         );
         sheetObject
-                .cell(
-                  CellIndex.indexByColumnRow(
-                    columnIndex: 5,
-                    rowIndex: rowIndex,
-                  ),
-                )
-                .cellStyle =
-            centerAlign;
+            .cell(
+              exc.CellIndex.indexByColumnRow(
+                columnIndex: 5,
+                rowIndex: rowIndex,
+              ),
+            )
+            .cellStyle = exc.CellStyle(
+          horizontalAlign: exc.HorizontalAlign.Center,
+        );
 
-        // EXCEL ATK & AMENITIES
+        // ==============================================================
+        // EXCEL ATK & AMENITIES (LAYOUT SESUAI CONTOH FOTO ASLI)
+        // ==============================================================
       } else if (kategoriUpper.contains('ATK') ||
           kategoriUpper.contains('AMENITIES')) {
-        String title = kategoriUpper.contains('ATK')
-            ? 'LAPORAN INVENTARIS ALAT TULIS KANTOR (ATK)'
-            : 'LAPORAN INVENTARIS AMENITIES';
-
-        sheetObject.merge(
-          CellIndex.indexByString('A1'),
-          CellIndex.indexByString('G1'),
-          customValue: TextCellValue(title),
-        );
-        sheetObject.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
-        sheetObject.cell(CellIndex.indexByString('A2')).value = TextCellValue(
-          'BULAN / TAHUN : $bulanTahun',
-        );
-
-        List<String> headers = [
-          'No.',
-          'Nama Barang',
-          'Jumlah',
-          'Satuan',
-          'Lokasi / Ruang',
-          'Kondisi',
-          'Keterangan',
-        ];
-
-        for (int i = 0; i < headers.length; i++) {
-          var cell = sheetObject.cell(
-            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3),
-          );
-          cell.value = TextCellValue(headers[i]);
-          cell.cellStyle = headerStyle;
-        }
-
-        int rowIndex = 4;
-        int nomorUrut = 1;
-
-        String formatData(dynamic data) {
-          if (data == null || data.toString().trim().isEmpty) return '-';
-          return data.toString();
-        }
+        bool isFirst = true;
 
         for (var doc in snapshot.docs) {
           final data = doc.data();
-          List<String> rowData = [
-            nomorUrut.toString(),
-            formatData(data['nama_barang'] ?? data['nama_atk'] ?? data['nama']),
-            formatData(data['jumlah'] ?? data['stok'] ?? data['qty']),
-            formatData(data['satuan']),
-            formatData(data['lokasi'] ?? data['gedung_ruang']),
-            formatData(data['kondisi']),
-            formatData(data['keterangan']),
-          ];
+          String rawName =
+              data['nama_barang'] ??
+              data['nama_atk'] ??
+              data['nama'] ??
+              'Tanpa Nama';
 
-          for (int i = 0; i < rowData.length; i++) {
-            var cell = sheetObject.cell(
-              CellIndex.indexByColumnRow(columnIndex: i, rowIndex: rowIndex),
-            );
-            cell.value = TextCellValue(rowData[i]);
-            if (i != 1) cell.cellStyle = centerAlign;
+          String cleanSheetName = rawName
+              .replaceAll(RegExp(r'[\\/?*\[\]:]'), '')
+              .trim();
+          if (cleanSheetName.length > 31)
+            cleanSheetName = cleanSheetName.substring(0, 31);
+          if (cleanSheetName.isEmpty)
+            cleanSheetName = 'Item ${doc.id.substring(0, 4)}';
+
+          int suffix = 1;
+          String finalSheetName = cleanSheetName;
+          while (excel.tables.containsKey(finalSheetName) &&
+              (!isFirst || defaultSheet != finalSheetName)) {
+            finalSheetName =
+                '${cleanSheetName.substring(0, cleanSheetName.length > 28 ? 28 : cleanSheetName.length)}_$suffix';
+            suffix++;
           }
-          rowIndex++;
-          nomorUrut++;
+
+          if (isFirst) {
+            excel.rename(defaultSheet, finalSheetName);
+            isFirst = false;
+          }
+
+          exc.Sheet sheetObject = excel[finalSheetName];
+
+          // --- KOP SURAT ---
+          exc.CellStyle boldStyle = exc.CellStyle(bold: true);
+          sheetObject.cell(exc.CellIndex.indexByString('A1')).value =
+              exc.TextCellValue('PT PLN (PERSERO)');
+          sheetObject.cell(exc.CellIndex.indexByString('A1')).cellStyle =
+              boldStyle;
+
+          sheetObject.cell(exc.CellIndex.indexByString('A2')).value =
+              exc.TextCellValue('MONITORING STOK BARANG');
+          sheetObject.cell(exc.CellIndex.indexByString('A2')).cellStyle =
+              boldStyle;
+
+          sheetObject.cell(exc.CellIndex.indexByString('A5')).value =
+              exc.TextCellValue('No. Kartu :');
+          sheetObject.cell(exc.CellIndex.indexByString('B5')).value =
+              exc.TextCellValue('Nama Barang :');
+          sheetObject.cell(exc.CellIndex.indexByString('F5')).value =
+              exc.TextCellValue('Satuan :');
+
+          // Merge Baris Nama Barang (B6 sampai E6)
+          sheetObject.merge(
+            exc.CellIndex.indexByString('B6'),
+            exc.CellIndex.indexByString('E6'),
+            customValue: exc.TextCellValue(rawName),
+          );
+          sheetObject.cell(exc.CellIndex.indexByString('B6')).cellStyle =
+              boldStyle;
+
+          String satuan = data['satuan'] ?? '-';
+          sheetObject.cell(exc.CellIndex.indexByString('F6')).value =
+              exc.TextCellValue(satuan);
+          sheetObject.cell(exc.CellIndex.indexByString('F6')).cellStyle =
+              boldStyle;
+
+          sheetObject
+              .cell(exc.CellIndex.indexByString('A7'))
+              .value = exc.TextCellValue(
+            '........................................................................................................................',
+          );
+
+          // --- HEADER TABEL RIWAYAT (Tanpa Rak & Peti) ---
+          exc.CellStyle tableHeaderStyle = exc.CellStyle(
+            bold: true,
+            horizontalAlign: exc.HorizontalAlign.Center,
+            verticalAlign: exc.VerticalAlign.Center,
+          );
+
+          sheetObject.cell(exc.CellIndex.indexByString('A9')).value =
+              exc.TextCellValue('Tgl.');
+          sheetObject.cell(exc.CellIndex.indexByString('B9')).value =
+              exc.TextCellValue('No. Bon');
+          sheetObject.cell(exc.CellIndex.indexByString('C9')).value =
+              exc.TextCellValue('Masuk');
+          sheetObject.cell(exc.CellIndex.indexByString('D9')).value =
+              exc.TextCellValue('Keluar');
+          sheetObject.cell(exc.CellIndex.indexByString('E9')).value =
+              exc.TextCellValue('Sisa Persediaan');
+          sheetObject.cell(exc.CellIndex.indexByString('F9')).value =
+              exc.TextCellValue('Catatan');
+
+          List<String> headerCells = ['A9', 'B9', 'C9', 'D9', 'E9', 'F9'];
+          for (String cell in headerCells) {
+            sheetObject.cell(exc.CellIndex.indexByString(cell)).cellStyle =
+                tableHeaderStyle;
+          }
+
+          // --- ISI DATA RIWAYAT STOK ---
+          List<dynamic> riwayat = [];
+          if (kategoriUpper.contains('ATK')) {
+            riwayat = data['riwayat_stok_atk'] ?? [];
+          } else {
+            riwayat = data['riwayat_stok_amenities'] ?? [];
+          }
+
+          int rIdx = 9;
+
+          exc.CellStyle dataCenter = exc.CellStyle(
+            horizontalAlign: exc.HorizontalAlign.Center,
+            verticalAlign: exc.VerticalAlign.Center,
+          );
+
+          exc.CellStyle dataLeft = exc.CellStyle(
+            horizontalAlign: exc.HorizontalAlign.Left,
+            verticalAlign: exc.VerticalAlign.Center,
+          );
+
+          String formatTgl(String? isoDate) {
+            if (isoDate == null || isoDate.isEmpty) return '-';
+            try {
+              DateTime dt = DateTime.parse(isoDate);
+              return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+            } catch (_) {
+              return isoDate;
+            }
+          }
+
+          if (riwayat.isEmpty) {
+            sheetObject
+                .cell(
+                  exc.CellIndex.indexByColumnRow(
+                    columnIndex: 0,
+                    rowIndex: rIdx,
+                  ),
+                )
+                .value = exc.TextCellValue(
+              formatTgl(data['tanggal_transaksi'] ?? data['updated_at']),
+            );
+            sheetObject
+                .cell(
+                  exc.CellIndex.indexByColumnRow(
+                    columnIndex: 1,
+                    rowIndex: rIdx,
+                  ),
+                )
+                .value = exc.TextCellValue(
+              '-',
+            );
+            sheetObject
+                .cell(
+                  exc.CellIndex.indexByColumnRow(
+                    columnIndex: 2,
+                    rowIndex: rIdx,
+                  ),
+                )
+                .value = exc.TextCellValue(
+              data['masuk']?.toString() ?? '-',
+            );
+            sheetObject
+                .cell(
+                  exc.CellIndex.indexByColumnRow(
+                    columnIndex: 3,
+                    rowIndex: rIdx,
+                  ),
+                )
+                .value = exc.TextCellValue(
+              data['keluar']?.toString() ?? '-',
+            );
+
+            String sisa =
+                data['sisa_jumlah']?.toString() ??
+                data['jumlah']?.toString() ??
+                '0';
+            sheetObject
+                .cell(
+                  exc.CellIndex.indexByColumnRow(
+                    columnIndex: 4,
+                    rowIndex: rIdx,
+                  ),
+                )
+                .value = exc.TextCellValue(
+              sisa,
+            );
+            sheetObject
+                .cell(
+                  exc.CellIndex.indexByColumnRow(
+                    columnIndex: 5,
+                    rowIndex: rIdx,
+                  ),
+                )
+                .value = exc.TextCellValue(
+              data['keterangan'] ?? 'Stok Awal',
+            );
+
+            for (int c = 0; c <= 5; c++) {
+              sheetObject
+                  .cell(
+                    exc.CellIndex.indexByColumnRow(
+                      columnIndex: c,
+                      rowIndex: rIdx,
+                    ),
+                  )
+                  .cellStyle = (c == 5)
+                  ? dataLeft
+                  : dataCenter;
+            }
+            rIdx++;
+          } else {
+            for (var history in riwayat) {
+              String tgl = formatTgl(history['tanggal'] ?? history['tgl']);
+              String masuk = history['masuk']?.toString() ?? '-';
+              if (masuk == '0') masuk = '-';
+              String keluar = history['keluar']?.toString() ?? '-';
+              if (keluar == '0') keluar = '-';
+
+              String sisa =
+                  history['jumlah_baru']?.toString() ??
+                  history['sisa']?.toString() ??
+                  history['jumlah']?.toString() ??
+                  '0';
+              String catatan =
+                  history['catatan'] ?? history['keterangan'] ?? '-';
+
+              sheetObject
+                  .cell(
+                    exc.CellIndex.indexByColumnRow(
+                      columnIndex: 0,
+                      rowIndex: rIdx,
+                    ),
+                  )
+                  .value = exc.TextCellValue(
+                tgl,
+              );
+              sheetObject
+                  .cell(
+                    exc.CellIndex.indexByColumnRow(
+                      columnIndex: 1,
+                      rowIndex: rIdx,
+                    ),
+                  )
+                  .value = exc.TextCellValue(
+                '-',
+              );
+              sheetObject
+                  .cell(
+                    exc.CellIndex.indexByColumnRow(
+                      columnIndex: 2,
+                      rowIndex: rIdx,
+                    ),
+                  )
+                  .value = exc.TextCellValue(
+                masuk,
+              );
+              sheetObject
+                  .cell(
+                    exc.CellIndex.indexByColumnRow(
+                      columnIndex: 3,
+                      rowIndex: rIdx,
+                    ),
+                  )
+                  .value = exc.TextCellValue(
+                keluar,
+              );
+              sheetObject
+                  .cell(
+                    exc.CellIndex.indexByColumnRow(
+                      columnIndex: 4,
+                      rowIndex: rIdx,
+                    ),
+                  )
+                  .value = exc.TextCellValue(
+                sisa,
+              );
+              sheetObject
+                  .cell(
+                    exc.CellIndex.indexByColumnRow(
+                      columnIndex: 5,
+                      rowIndex: rIdx,
+                    ),
+                  )
+                  .value = exc.TextCellValue(
+                catatan,
+              );
+
+              for (int c = 0; c <= 5; c++) {
+                sheetObject
+                    .cell(
+                      exc.CellIndex.indexByColumnRow(
+                        columnIndex: c,
+                        rowIndex: rIdx,
+                      ),
+                    )
+                    .cellStyle = (c == 5)
+                    ? dataLeft
+                    : dataCenter;
+              }
+              rIdx++;
+            }
+          }
         }
 
+        // ==============================================================
         // KATEGORI LAINNYA
+        // ==============================================================
       } else {
-        sheetObject.cell(CellIndex.indexByString('A1')).value = TextCellValue(
+        excel.rename(defaultSheet, sheetName);
+        exc.Sheet sheetObject = excel[sheetName];
+
+        sheetObject
+            .cell(exc.CellIndex.indexByString('A1'))
+            .value = exc.TextCellValue(
           'LAPORAN DATA ${widget.namaKategori.toUpperCase()}',
         );
-        sheetObject.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
-        sheetObject.cell(CellIndex.indexByString('A2')).value = TextCellValue(
-          'BULAN / TAHUN : $bulanTahun',
-        );
+        sheetObject.cell(exc.CellIndex.indexByString('A1')).cellStyle =
+            headerStyle;
+        sheetObject.cell(exc.CellIndex.indexByString('A2')).value =
+            exc.TextCellValue('BULAN / TAHUN : $bulanTahun');
 
         List<String> headersLain = [
           'NO',
@@ -317,9 +576,9 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
 
         for (int i = 0; i < headersLain.length; i++) {
           var cell = sheetObject.cell(
-            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3),
+            exc.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3),
           );
-          cell.value = TextCellValue(headersLain[i]);
+          cell.value = exc.TextCellValue(headersLain[i]);
           cell.cellStyle = headerStyle;
         }
 
@@ -343,12 +602,12 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
           for (int i = 0; i < rowData.length; i++) {
             sheetObject
                 .cell(
-                  CellIndex.indexByColumnRow(
+                  exc.CellIndex.indexByColumnRow(
                     columnIndex: i,
                     rowIndex: rowIndex,
                   ),
                 )
-                .value = TextCellValue(
+                .value = exc.TextCellValue(
               rowData[i],
             );
           }
@@ -392,14 +651,14 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Colors.blue.shade50,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0.5,
+        elevation: 0,
+        backgroundColor: Colors.blue.shade900,
+        foregroundColor: Colors.white,
         title: Text(
           widget.namaKategori,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
           _isExporting
@@ -408,11 +667,14 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                   child: SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   ),
                 )
               : IconButton(
-                  icon: const Icon(Icons.download_rounded, color: Colors.blue),
+                  icon: const Icon(Icons.download_rounded, color: Colors.white),
                   tooltip: 'Unduh Laporan Excel',
                   onPressed: _unduhLaporanExcel,
                 ),
@@ -421,24 +683,44 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
       body: Column(
         children: [
           Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.only(
+              left: 16.0,
+              right: 16.0,
+              bottom: 30.0,
+              top: 16.0,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade900, Colors.blue.shade600],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(30),
+                bottomRight: Radius.circular(30),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withAlpha(76),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
             child: TextField(
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value.toLowerCase();
-                });
-              },
+              onChanged: (val) =>
+                  setState(() => _searchQuery = val.toLowerCase()),
               decoration: InputDecoration(
                 hintText: 'Cari ${widget.namaKategori.toLowerCase()}...',
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                hintStyle: TextStyle(color: Colors.grey.shade500),
+                prefixIcon: Icon(Icons.search, color: Colors.blue.shade700),
                 filled: true,
-                fillColor: Colors.grey.shade100,
+                fillColor: Colors.white,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
           ),
@@ -523,16 +805,14 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                     String infoHighlight = '';
                     String infoSekunder = '';
                     bool isWarning = false;
-                    String? imageUrl = data['foto_url'];
+                    String statusBadge = 'TERSEDIA';
+                    String? imageUrl = data['foto_url'] ?? data['image_url'];
 
                     String tglEdit = _formatTanggalEdit(data);
                     String labelTanggalEdit = tglEdit.isNotEmpty
                         ? 'Diubah: $tglEdit'
                         : '';
 
-                    // ==========================================
-                    // APD (ALAT PELINDUNG DIRI)
-                    // ==========================================
                     if (kategoriData.contains('APD')) {
                       judulUtama =
                           data['peralatan'] ??
@@ -540,8 +820,15 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                           data['nama_barang'] ??
                           'APD Tanpa Nama';
                       dynamic rawJml =
-                          data['jumlah'] ?? data['stok'] ?? data['qty'];
-                      infoHighlight = 'Jml: ${rawJml ?? 0}';
+                          data['jumlah'] ?? data['stok'] ?? data['qty'] ?? 0;
+                      infoHighlight = 'Jml: $rawJml';
+
+                      statusBadge = (data['kondisi'] ?? 'BAIK')
+                          .toString()
+                          .toUpperCase();
+                      isWarning =
+                          statusBadge.contains('RUSAK') ||
+                          rawJml.toString() == '0';
 
                       if (labelTanggalEdit.isNotEmpty) {
                         infoSekunder = labelTanggalEdit;
@@ -549,18 +836,9 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                           data['pembelian'].toString().isNotEmpty) {
                         infoSekunder = 'Pembelian: ${data['pembelian']}';
                       } else {
-                        infoSekunder = 'Kondisi: ${data['kondisi'] ?? 'Baik'}';
+                        infoSekunder =
+                            'Masa Pakai: ${data['masa_pakai'] ?? '-'}';
                       }
-
-                      isWarning =
-                          (data['kondisi']?.toString().toLowerCase().contains(
-                            'rusak',
-                          ) ??
-                          false);
-
-                      // ==========================================
-                      // ATK & AMENITIES
-                      // ==========================================
                     } else if (kategoriData.contains('ATK') ||
                         kategoriData.contains('AMENITIES')) {
                       judulUtama =
@@ -575,13 +853,26 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                           data['stok'] ??
                           data['qty'] ??
                           0;
-
                       String satuan =
                           (data['satuan'] != null &&
                               data['satuan'].toString().trim().isNotEmpty)
                           ? ' ${data['satuan']}'
                           : '';
                       infoHighlight = 'Jml: $rawJml$satuan';
+
+                      if (rawJml.toString() == '0' ||
+                          (data['kondisi']?.toString().toUpperCase().contains(
+                                'HABIS',
+                              ) ??
+                              false)) {
+                        statusBadge = 'HABIS';
+                        isWarning = true;
+                      } else {
+                        statusBadge = (data['kondisi'] ?? 'TERSEDIA')
+                            .toString()
+                            .toUpperCase();
+                        isWarning = false;
+                      }
 
                       String tglTransaksi = '';
                       if (data['tanggal_transaksi'] != null) {
@@ -597,7 +888,6 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                       String infoTanggal = tglTransaksi.isNotEmpty
                           ? 'Tgl Update: $tglTransaksi'
                           : labelTanggalEdit;
-
                       if (infoTanggal.isNotEmpty) {
                         infoSekunder = infoTanggal;
                       } else if (data['lokasi'] != null &&
@@ -607,17 +897,6 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                         infoSekunder =
                             'Keterangan: ${data['keterangan'] ?? '-'}';
                       }
-
-                      isWarning =
-                          (rawJml.toString() == '0' ||
-                          (data['kondisi']?.toString().toLowerCase().contains(
-                                'habis',
-                              ) ??
-                              false));
-
-                      // ==========================================
-                      // KATEGORI LAIN
-                      // ==========================================
                     } else {
                       judulUtama =
                           data['nama_barang'] ??
@@ -632,110 +911,188 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                       infoSekunder = labelTanggalEdit.isNotEmpty
                           ? labelTanggalEdit
                           : '${data['lokasi'] ?? '-'}';
+                      statusBadge = (data['kondisi'] ?? 'TERSEDIA')
+                          .toString()
+                          .toUpperCase();
                       isWarning = false;
                     }
 
-                    return Card(
-                      elevation: 0,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.grey.shade300),
+                    Color leftBorderColor = isWarning
+                        ? Colors.red.shade700
+                        : Colors.blue.shade700;
+                    Color badge1Color = isWarning
+                        ? Colors.red.shade700
+                        : Colors.blue.shade700;
+                    Color badge2Color = isWarning
+                        ? Colors.red.shade700
+                        : Colors.green.shade700;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.shade100.withAlpha(128),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(12),
-                        leading: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            width: 50,
-                            height: 50,
-                            color: Colors.grey.shade200,
-                            child: imageUrl != null && imageUrl.isNotEmpty
-                                ? Image.network(
-                                    imageUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder:
-                                        (context, error, stackTrace) => Icon(
-                                          Icons.broken_image,
-                                          color: Colors.grey.shade400,
-                                        ),
-                                  )
-                                : Icon(
-                                    kategoriData.contains('APD')
-                                        ? Icons.health_and_safety
-                                        : kategoriData.contains('ATK')
-                                        ? Icons.edit_note
-                                        : kategoriData.contains('AMENITIES')
-                                        ? Icons.spa
-                                        : Icons.inventory_2,
-                                    color: Colors.grey,
-                                  ),
-                          ),
-                        ),
-                        title: Text(
-                          judulUtama,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                        subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isWarning
-                                      ? Colors.red.shade50
-                                      : Colors.blue.shade50,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  infoHighlight,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isWarning
-                                        ? Colors.red.shade700
-                                        : Colors.blue.shade700,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  infoSekunder,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isWarning
-                                        ? Colors.red
-                                        : Colors.grey.shade600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        trailing: const Icon(
-                          Icons.chevron_right,
-                          color: Colors.grey,
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => DetailBarangScreen(
-                                dataBarang: data,
-                                documentId: docId,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(
+                                color: leftBorderColor,
+                                width: 5,
                               ),
                             ),
-                          );
-                        },
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => DetailBarangScreen(
+                                      dataBarang: data,
+                                      documentId: docId,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 50,
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade50,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child:
+                                            imageUrl != null &&
+                                                imageUrl.isNotEmpty
+                                            ? Image.network(
+                                                imageUrl,
+                                                fit: BoxFit.cover,
+                                                errorBuilder:
+                                                    (
+                                                      context,
+                                                      error,
+                                                      stackTrace,
+                                                    ) => Icon(
+                                                      Icons.broken_image,
+                                                      color:
+                                                          Colors.grey.shade400,
+                                                    ),
+                                              )
+                                            : Icon(
+                                                kategoriData.contains('APD')
+                                                    ? Icons.health_and_safety
+                                                    : kategoriData.contains(
+                                                        'ATK',
+                                                      )
+                                                    ? Icons.edit_note
+                                                    : kategoriData.contains(
+                                                        'AMENITIES',
+                                                      )
+                                                    ? Icons.spa
+                                                    : Icons.inventory_2,
+                                                color: Colors.blue.shade700,
+                                              ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 15),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            judulUtama,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: Colors.blue.shade900,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            infoSekunder,
+                                            style: TextStyle(
+                                              color: Colors.grey.shade600,
+                                              fontSize: 12,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: badge1Color.withAlpha(25),
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            infoHighlight.toUpperCase(),
+                                            style: TextStyle(
+                                              color: badge1Color,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: badge2Color.withAlpha(25),
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            statusBadge,
+                                            style: TextStyle(
+                                              color: badge2Color,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -746,7 +1103,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.blue.shade700,
+        backgroundColor: Colors.blue.shade800,
         foregroundColor: Colors.white,
         onPressed: () {
           Navigator.push(
