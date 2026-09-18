@@ -222,8 +222,8 @@ class _LoginPageState extends State<LoginPage> {
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: BorderSide(
-                            color: const Color(0xFF149C94),
+                          side: const BorderSide(
+                            color: Color(0xFF149C94),
                             width: 1.5,
                           ),
                           shape: RoundedRectangleBorder(
@@ -243,7 +243,13 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         onPressed: () {
-                          Navigator.pushNamed(context, '/form-p3k');
+                          // Menggunakan Navigator.push standar agar tombol langsung merespons
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const PublicCatatanScreen(),
+                            ),
+                          );
                         },
                       ),
                     ],
