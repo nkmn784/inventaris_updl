@@ -27,11 +27,24 @@ dependencies:
   csv: ^6.0.0
   share_plus: ^13.3.0
   file_saver: ^0.4.0
+  intl: ^0.20.3
+  universal_html: ^2.3.0
+  image_cropper: ^12.2.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/logo.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/app_icon.png" # Sesuaikan dengan nama file gambarmu
+  adaptive_icon_background: "#1E88E5" # Warna biru sebagai cadangan background
+  adaptive_icon_foreground: "assets/app_icon.png"

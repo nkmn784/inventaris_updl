@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'daftar_barang_screen.dart';
-import 'daftar_apar_screen.dart';
+import 'apar_screen.dart';
 import 'daftar_penerangan_screen.dart';
-import 'daftar_p3k_screen.dart'; // <-- 1. Tambahkan import P3K di sini
+import 'p3k_screen.dart';
+import 'history_laporan_screen.dart';
+import 'login_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -12,6 +15,8 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  int _selectedIndex = 0;
+
   final List<Map<String, dynamic>> _kategoriList = [
     {'nama': 'APAR', 'total': 150, 'icon': Icons.fire_extinguisher},
     {'nama': 'P3K', 'total': 45, 'icon': Icons.medical_services},
@@ -25,76 +30,233 @@ class _DashboardScreenState extends State<DashboardScreen> {
     {'nama': 'Penerangan', 'total': 60, 'icon': Icons.lightbulb_outline},
   ];
 
-  void _tampilkanFormKategori({String? currentName, int? index}) {
-    final TextEditingController controller = TextEditingController(
-      text: currentName ?? '',
-    );
+  void _onItemTapped(int index) {
+    if (index == 0) {
+      setState(() {
+        _selectedIndex = index;
+      });
+    } else if (index == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const HistoryLaporanScreen()),
+      );
+    } else if (index == 2) {
+      _tampilkanNotifikasi();
+    } else if (index == 3) {
+      _tampilkanDialogLogout();
+    }
+  }
 
-    showDialog(
+  // ==========================================
+  // NOTIFIKASI OTOMATIS BERDASARKAN STATUS ALAT
+  // ==========================================
+  // ==========================================
+  // NOTIFIKASI OTOMATIS BERDASARKAN STATUS ALAT
+  // ==========================================
+  void _tampilkanNotifikasi() {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          currentName == null ? 'Tambah Jenis Barang' : 'Edit Jenis Barang',
-        ),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'Nama Jenis Barang (Cth: APAR)',
-            border: OutlineInputBorder(),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.6,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                setState(() {
-                  if (currentName == null) {
-                    _kategoriList.add({
-                      'nama': controller.text,
-                      'total': 0,
-                      'icon': Icons.inventory,
-                    });
-                  } else {
-                    _kategoriList[index!]['nama'] = controller.text;
-                  }
-                });
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Simpan'),
-          ),
-        ],
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 50,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Notifikasi & Peringatan Alat',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.blueAccent,
+              ),
+            ),
+            const Divider(),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('APAR')
+                    .snapshots(),
+                builder: (context, snapshotApar) {
+                  return StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('Kotak P3K')
+                        .snapshots(),
+                    builder: (context, snapshotP3k) {
+                      List<Widget> listPeringatan = [];
+
+                      // 1. Cek Temuan Masalah di APAR (selain Tersedia)
+                      if (snapshotApar.hasData && snapshotApar.data != null) {
+                        for (var doc in snapshotApar.data!.docs) {
+                          // <-- DIPERBAIKI (menggunakan .data()!.docs)
+                          var data = doc.data() as Map<String, dynamic>;
+                          String status = data['keterangan'] ?? 'Tersedia';
+                          var spec = data['spesifikasi'] ?? {};
+                          String noApar = spec['No APAR'] ?? '-';
+
+                          if (status.toLowerCase() != 'tersedia') {
+                            listPeringatan.add(
+                              ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: Colors.red.shade100,
+                                  child: const Icon(
+                                    Icons.warning_amber_rounded,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                                title: Text(
+                                  'APAR No. $noApar Bermasalah',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'Lokasi: ${data['lokasi'] ?? '-'} • Status: $status',
+                                ),
+                                trailing: const Text(
+                                  'Perhatian',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      }
+
+                      // 2. Cek Temuan Defisit / Butuh Isi Ulang di Kotak P3K
+                      if (snapshotP3k.hasData && snapshotP3k.data != null) {
+                        for (var doc in snapshotP3k.data!.docs) {
+                          // <-- DIPERBAIKI (menggunakan .data()!.docs)
+                          var data = doc.data() as Map<String, dynamic>;
+                          Map<String, dynamic> defisit =
+                              Map<String, dynamic>.from(
+                                data['defisit_p3k'] ?? {},
+                              );
+                          bool butuhIsiUlang = false;
+                          defisit.forEach((k, v) {
+                            if (v is int && v > 0) butuhIsiUlang = true;
+                          });
+
+                          if (butuhIsiUlang) {
+                            listPeringatan.add(
+                              ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: Colors.orange.shade100,
+                                  child: const Icon(
+                                    Icons.medical_services,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                                title: Text(
+                                  '${data['nama_barang'] ?? 'Kotak P3K'} Butuh Isi Ulang',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'Lokasi: ${data['lokasi'] ?? '-'} • Item P3K ada yang kurang.',
+                                ),
+                                trailing: const Text(
+                                  'Isi Ulang',
+                                  style: TextStyle(
+                                    color: Colors.orange,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      }
+
+                      if (listPeringatan.isEmpty) {
+                        return const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline,
+                                size: 50,
+                                color: Colors.green,
+                              ),
+                              SizedBox(height: 10),
+                              Text(
+                                'Semua alat aman dan tersedia!',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return ListView(children: listPeringatan);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _hapusKategori(int index) {
+  void _tampilkanDialogLogout() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Hapus Jenis Barang'),
-        content: Text('Yakin ingin menghapus ${_kategoriList[index]['nama']}?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Konfirmasi Logout',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text('Apakah Anda yakin ingin keluar dari aplikasi?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: Colors.red.shade600,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: () {
-              setState(() {
-                _kategoriList.removeAt(index);
-              });
               Navigator.pop(context);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+                (Route<dynamic> route) => false,
+              );
             },
-            child: const Text('Hapus'),
+            child: const Text('Logout'),
           ),
         ],
       ),
@@ -104,168 +266,306 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Colors.blue.shade50,
       appBar: AppBar(
-        backgroundColor: Colors.blue.shade800,
+        elevation: 0,
+        backgroundColor: Colors.blue.shade900,
         foregroundColor: Colors.white,
-        title: const Text(
-          'STOCKFLOW - Dashboard',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        titleSpacing: 16,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/logo.png',
+                  height: 32,
+                  width: 32,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'PLN UPDL INVENTORY',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  'Dashboard Overview',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.blue.shade200,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              Navigator.pop(context);
-            },
-          ),
-        ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(16.0),
-            color: Colors.blue.shade800,
+            padding: const EdgeInsets.only(
+              left: 16.0,
+              right: 16.0,
+              bottom: 30.0,
+              top: 16.0,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade900, Colors.blue.shade600],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(30),
+                bottomRight: Radius.circular(30),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
             child: TextField(
               decoration: InputDecoration(
                 hintText: 'Search inventory...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: const Icon(Icons.tune),
+                hintStyle: TextStyle(color: Colors.grey.shade500),
+                prefixIcon: Icon(Icons.search, color: Colors.blue.shade700),
+                suffixIcon: Container(
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.tune,
+                    color: Colors.blue.shade700,
+                    size: 20,
+                  ),
+                ),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
-            child: Text(
-              'Categories',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
+
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+            child: Row(
+              children: [
+                Icon(Icons.category_rounded, color: Colors.blue.shade800),
+                const SizedBox(width: 8),
+                Text(
+                  'Kategori Barang',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.blue.shade900,
+                  ),
+                ),
+              ],
             ),
           ),
+
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: _kategoriList.length,
               itemBuilder: (context, index) {
                 final item = _kategoriList[index];
-                return Card(
-                  elevation: 0,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    leading: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(item['icon'], color: Colors.blue.shade700),
-                    ),
-                    title: Text(
-                      item['nama'],
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '${item['total']} items total',
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.edit_outlined,
-                            size: 20,
-                            color: Colors.grey,
-                          ),
-                          onPressed: () => _tampilkanFormKategori(
-                            currentName: item['nama'],
-                            index: index,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            size: 20,
-                            color: Colors.redAccent,
-                          ),
-                          onPressed: () => _hapusKategori(index),
-                        ),
-                        const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 16,
-                          color: Colors.grey,
-                        ),
-                      ],
-                    ),
-                    onTap: () {
-                      // Percabangan halaman berdasarkan kategori
-                      if (item['nama'] == 'Penerangan') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const DaftarPeneranganScreen(),
-                          ),
-                        );
-                      } else if (item['nama'] == 'APAR') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const DaftarAparScreen(),
-                          ),
-                        );
-                      } else if (item['nama'] == 'P3K') {
-                        // <-- 2. TAMBAHKAN KONDISI INI UNTUK P3K
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const DaftarP3kScreen(),
-                          ),
-                        );
-                      } else {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                DaftarBarangScreen(namaKategori: item['nama']),
-                          ),
-                        );
-                      }
+
+                // Sinkronisasi total item real-time untuk APAR dan P3K
+                if (item['nama'] == 'APAR' || item['nama'] == 'P3K') {
+                  return StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection(
+                          item['nama'] == 'P3K' ? 'Kotak P3K' : 'APAR',
+                        )
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      int totalRealTime = snapshot.hasData
+                          ? snapshot.data!.docs.length
+                          : 0;
+                      return _buildKategoriCard(context, item, totalRealTime);
                     },
-                  ),
-                );
+                  );
+                }
+
+                return _buildKategoriCard(context, item, item['total']);
               },
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.blue.shade700,
-        foregroundColor: Colors.white,
-        onPressed: () => _tampilkanFormKategori(),
-        child: const Icon(Icons.add),
+
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.shade900.withOpacity(0.1),
+              blurRadius: 15,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+          child: BottomNavigationBar(
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            currentIndex: _selectedIndex,
+            selectedItemColor: Colors.blue.shade800,
+            unselectedItemColor: Colors.grey.shade400,
+            selectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+            unselectedLabelStyle: const TextStyle(fontSize: 12),
+            onTap: _onItemTapped,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.dashboard_rounded),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.assignment_rounded),
+                label: 'Laporan',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.notifications_rounded),
+                label: 'Notifikasi',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.logout_rounded),
+                label: 'Logout',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildKategoriCard(
+    BuildContext context,
+    Map<String, dynamic> item,
+    int total,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.shade100.withOpacity(0.5),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border(left: BorderSide(color: Colors.blue.shade700, width: 5)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            if (item['nama'] == 'APAR') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AparScreen()),
+              );
+            } else if (item['nama'] == 'P3K') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const P3kScreen()),
+              );
+            } else if (item['nama'] == 'Penerangan') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const DaftarPeneranganScreen(),
+                ),
+              );
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      DaftarBarangScreen(namaKategori: item['nama']),
+                ),
+              );
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  item['icon'],
+                  color: Colors.blue.shade700,
+                  size: 26,
+                ),
+              ),
+              title: Text(
+                item['nama'],
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.blue.shade900,
+                ),
+              ),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '$total items total',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                ),
+              ),
+              trailing: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: Colors.blue.shade700,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
