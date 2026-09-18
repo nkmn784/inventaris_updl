@@ -424,6 +424,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
 
         List<String> p3kHeaders = [
           'No',
+          'No Kotak P3K',
           'Gedung/Ruang',
           'Kapasitas',
           'Existing',
@@ -519,7 +520,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           String kapasitas = tipe.contains('B')
               ? '50 orang'
               : (tipe.contains('C') ? '100 orang' : '25 orang');
-
+          String noP3k = spec['No P3K'] ?? '-';
           sheet1
               .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rIdx))
               .value = IntCellValue(
@@ -528,25 +529,30 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           sheet1
               .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rIdx))
               .value = TextCellValue(
-            mData['nama_barang'] ?? '-',
+            noP3k,
           );
           sheet1
               .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rIdx))
               .value = TextCellValue(
-            kapasitas,
+            mData['nama_barang'] ?? '-',
           );
           sheet1
               .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rIdx))
               .value = TextCellValue(
-            tipe,
+            kapasitas,
           );
           sheet1
               .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rIdx))
               .value = TextCellValue(
-            '${tipe}A',
+            tipe,
           );
           sheet1
               .cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rIdx))
+              .value = TextCellValue(
+            '${tipe}A',
+          );
+          sheet1
+              .cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rIdx))
               .value = TextCellValue(
             mData['koordinat'] ?? '-',
           );
@@ -554,7 +560,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           Map<String, dynamic> defisit = Map<String, dynamic>.from(
             mData['defisit_p3k'] ?? {},
           );
-          int colOffset = 6;
+          int colOffset = 7;
           for (var itemName in list21Items) {
             int maxStock = standarP3KMap[itemName]![typeIndex];
             int curDef = defisit[itemName] ?? 0;
