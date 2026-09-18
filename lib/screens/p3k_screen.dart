@@ -27,6 +27,7 @@ class _P3kScreenState extends State<P3kScreen> {
   // --- DIALOG TAMBAH KOTAK P3K ---
   void _showAddP3kDialog(BuildContext context) {
     TextEditingController namaController = TextEditingController();
+    TextEditingController nomorP3kController = TextEditingController();
     TextEditingController lokasiController = TextEditingController();
     TextEditingController koordinatController = TextEditingController();
 
@@ -266,6 +267,12 @@ class _P3kScreenState extends State<P3kScreen> {
                     ),
                     const SizedBox(height: 12),
                     TextField(
+                      controller: nomorP3kController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nomor Kotak P3K (Contoh: 1)',
+                      ),
+                    ),
+                    TextField(
                       controller: namaController,
                       decoration: const InputDecoration(
                         labelText: 'Nama Kotak / Ruangan (Contoh: P3K Lobby)',
@@ -407,6 +414,7 @@ class _P3kScreenState extends State<P3kScreen> {
                                       'stok': quantity,
                                       'image_url': url ?? '',
                                       'spesifikasi': {
+                                        'No P3K': nomorP3kController.text,
                                         'Tipe': tipeHuruf,
                                         'Kapasitas Ruangan':
                                             selectedTipeP3K.contains('25')
@@ -538,7 +546,9 @@ class _P3kScreenState extends State<P3kScreen> {
                   doc,
                 ) {
                   var data = doc.data() as Map<String, dynamic>;
-                  String str = '${data['nama_barang']} ${data['lokasi']}'
+                  var spec = data['spesifikasi'] ?? {}; // Ambil spesifikasi
+                  String noP3k = spec['No P3K'] ?? ''; // Ambil nomor P3K
+                  String str = '${data['nama_barang']} ${data['lokasi']} $noP3k'
                       .toLowerCase();
                   return str.contains(_searchQuery);
                 }).toList();
@@ -650,7 +660,7 @@ class _P3kScreenState extends State<P3kScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        data['nama_barang'] ?? 'Kotak P3K',
+                                        'Kotak P3K No. ${spec['No P3K'] ?? '-'} (${data['nama_barang'] ?? 'Tanpa Nama'})', // <-- UBAH BAGIAN INI
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
@@ -801,6 +811,9 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
     var spec = currentData['spesifikasi'] ?? {};
     var expCairan = currentData['kadaluarsa_cairan'] ?? {};
 
+    TextEditingController nomorP3kController = TextEditingController(
+      text: spec['No P3K'] ?? '',
+    );
     TextEditingController namaController = TextEditingController(
       text: currentData['nama_barang'],
     );
@@ -1023,6 +1036,12 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
                               ),
                       ),
                     ),
+                    TextField(
+                      controller: nomorP3kController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nomor Kotak P3K',
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: namaController,
@@ -1030,6 +1049,7 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
                         labelText: 'Nama Kotak / Ruangan',
                       ),
                     ),
+
                     TextField(
                       controller: lokasiController,
                       decoration: const InputDecoration(
@@ -1143,6 +1163,7 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
                                     'koordinat': koordinatController.text,
                                     'image_url': finalImageUrl,
                                     'spesifikasi': {
+                                      'No P3K': nomorP3kController.text,
                                       'Tipe': tipeHuruf,
                                       'Kapasitas Ruangan':
                                           selectedTipeP3K.contains('25')
@@ -1332,7 +1353,7 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    namaBarang,
+                    'Kotak P3K No. ${spec['No P3K'] ?? '-'}',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -1341,7 +1362,7 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Lokasi: $lokasi • Tipe: $tipe',
+                    'Nama: $namaBarang • Lokasi: $lokasi • Tipe: $tipe', // <-- UBAH BAGIAN INI
                     style: TextStyle(color: Colors.grey.shade600),
                   ),
                   const Divider(height: 24),

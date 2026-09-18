@@ -241,7 +241,7 @@ class _CatatanPenggunaanScreenState extends State<CatatanPenggunaanScreen> {
                             // 2. Pemotongan Stok Gabungan ke Master Inventaris (Firebase Transaction)
                             DocumentReference docRef = FirebaseFirestore
                                 .instance
-                                .collection('inventaris')
+                                .collection('Kotak P3K')
                                 .doc(widget.docIdBarang);
                             await FirebaseFirestore.instance.runTransaction((
                               transaction,

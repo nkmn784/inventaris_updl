@@ -154,14 +154,37 @@ class _FormPemeriksaanScreenState extends State<FormPemeriksaanScreen> {
 
       if (_isP3K) {
         Map<String, int> defisitMap = {};
+        Map<String, dynamic> kadaluarsaMap =
+            {}; // Tambahkan penampung untuk kadaluarsa
+
         formattedResults.forEach((key, value) {
-          if (value is int && value > 0) {
-            defisitMap[key] = value;
-          } else if (value == 'Hilang') {
-            defisitMap[key] = 999; // Set ke 999 agar di excel stok jadi 0
+          // Deteksi apakah item ini adalah obat cairan (Aquades, Povidone, Alkohol)
+          bool isLiquid =
+              key.toLowerCase().contains('aquades') ||
+              key.toLowerCase().contains('povidone') ||
+              key.toLowerCase().contains('alkohol');
+
+          if (isLiquid) {
+            // Jika cairan statusnya Hilang, maka kadaluarsanya jadi kosong (-)
+            if (value == 'Hilang') {
+              kadaluarsaMap[key] = '-';
+            } else {
+              kadaluarsaMap[key] = value.toString();
+            }
+          } else {
+            // Untuk barang fisik (Kasa, Perban, dll)
+            if (value is int && value > 0) {
+              defisitMap[key] = value;
+            } else if (value == 'Hilang') {
+              defisitMap[key] =
+                  999; // Set ke 999 agar stok otomatis jadi 0 / 20
+            }
           }
         });
+
         masterUpdateData['defisit_p3k'] = defisitMap;
+        masterUpdateData['kadaluarsa_cairan'] =
+            kadaluarsaMap; // Update masa kadaluarsa ke database
       }
 
       // Menggunakan SetOptions(merge: true) agar tidak pernah memicu error "not-found"

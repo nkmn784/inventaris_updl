@@ -682,8 +682,14 @@ class _AparScreenState extends State<AparScreen> {
                                 ),
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
+                                  mainAxisAlignment: MainAxisAlignment
+                                      .center, // Tambahan agar sejajar di tengah secara vertikal (seperti P3K)
                                   children: [
                                     Container(
+                                      alignment:
+                                          Alignment.center, // Pusatkan Teks
+                                      width:
+                                          95, // Tambahkan lebar fix agar sejajar atas & bawah
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
                                         vertical: 4,
@@ -693,16 +699,21 @@ class _AparScreenState extends State<AparScreen> {
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Text(
-                                        status.toUpperCase(),
+                                        status, // Hapus .toUpperCase() agar gaya teksnya mirip badge P3K
                                         style: TextStyle(
                                           color: statusColor,
-                                          fontSize: 10,
+                                          fontSize:
+                                              9, // Samakan ukuran font dengan badge bawah
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Container(
+                                      alignment:
+                                          Alignment.center, // Pusatkan Teks
+                                      width:
+                                          95, // Tambahkan lebar fix agar sejajar atas & bawah
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
                                         vertical: 4,
