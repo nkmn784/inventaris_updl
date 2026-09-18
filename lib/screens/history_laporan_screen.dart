@@ -1526,65 +1526,34 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
             );
           }
 
-          // Kumpulan raw data dari Firestore
           List<QueryDocumentSnapshot> allDocs = snapshot.hasData
               ? snapshot.data!.docs
               : [];
 
-          // LOGIKA FILTER TAMPILAN UI HANYA MENAMPILKAN 1 DATA TERBARU PER ITEM
-          Map<String, QueryDocumentSnapshot> latestUI_DocsMap = {};
+          // ==========================================================
+          // LOGIKA BARU: KELOMPOKKAN PER KATEGORI & AMBIL 5 TERBARU
+          // ==========================================================
+          Map<String, List<QueryDocumentSnapshot>> groupedDocs = {};
           for (var doc in allDocs) {
             var data = doc.data() as Map<String, dynamic>;
+            String kategori = data['kategori'] ?? 'Lainnya';
 
-            // Menggunakan nama barang sebagai identifier (misal: "APAR 1")
-            String identifier =
-                data['docIdBarang']?.toString() ??
-                data['id_barang']?.toString() ??
-                data['nama_barang']?.toString() ??
-                doc.id;
-
-            DateTime? currentTgl;
-            if (data['tanggal'] != null) {
-              currentTgl = (data['tanggal'] as Timestamp).toDate();
+            if (!groupedDocs.containsKey(kategori)) {
+              groupedDocs[kategori] = [];
             }
 
-            if (!latestUI_DocsMap.containsKey(identifier)) {
-              latestUI_DocsMap[identifier] = doc;
-            } else {
-              var existingData =
-                  latestUI_DocsMap[identifier]!.data() as Map<String, dynamic>;
-              DateTime? existingTgl;
-              if (existingData['tanggal'] != null) {
-                existingTgl = (existingData['tanggal'] as Timestamp).toDate();
-              }
-              // Timpa dengan data yang lebih baru
-              if (currentTgl != null &&
-                  (existingTgl == null || currentTgl.isAfter(existingTgl))) {
-                latestUI_DocsMap[identifier] = doc;
-              }
+            // Karena allDocs sudah otomatis urut tanggal dari Firebase,
+            // kita cukup limit 5 data yang masuk ke dalam list.
+            if (groupedDocs[kategori]!.length < 5) {
+              groupedDocs[kategori]!.add(doc);
             }
           }
 
-          // Merubah kumpulan Map menjadi List lalu diurutkan sesuai tanggal paling baru ke terlama
-          List<QueryDocumentSnapshot> uniqueUIDocs = latestUI_DocsMap.values
-              .toList();
-          uniqueUIDocs.sort((a, b) {
-            var dataA = a.data() as Map<String, dynamic>;
-            var dataB = b.data() as Map<String, dynamic>;
-            DateTime tglA = dataA['tanggal'] != null
-                ? (dataA['tanggal'] as Timestamp).toDate()
-                : DateTime.fromMillisecondsSinceEpoch(0);
-            DateTime tglB = dataB['tanggal'] != null
-                ? (dataB['tanggal'] as Timestamp).toDate()
-                : DateTime.fromMillisecondsSinceEpoch(0);
-            return tglB.compareTo(tglA); // descending order
-          });
-
           return Column(
             children: [
-              // 1. BAGIAN ATAS: LISTVIEW RIWAYAT (Di-filter hanya yang terbaru)
+              // 1. BAGIAN ATAS: LISTVIEW RIWAYAT PER KATEGORI
               Expanded(
-                child: uniqueUIDocs.isEmpty
+                child: groupedDocs.isEmpty
                     ? const Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -1601,75 +1570,117 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                           ],
                         ),
                       )
-                    : ListView.builder(
+                    : ListView(
                         padding: const EdgeInsets.all(16),
-                        itemCount: uniqueUIDocs.length,
-                        itemBuilder: (context, index) {
-                          var data =
-                              uniqueUIDocs[index].data()
-                                  as Map<String, dynamic>;
+                        children: groupedDocs.entries.map((entry) {
+                          String kategori = entry.key;
+                          List<QueryDocumentSnapshot> docs = entry.value;
 
-                          String tanggalStr = '-';
-                          if (data['tanggal'] != null) {
-                            DateTime tgl = (data['tanggal'] as Timestamp)
-                                .toDate();
-                            tanggalStr = DateFormat(
-                              'dd MMM yyyy • HH:mm',
-                            ).format(tgl);
-                          }
-
-                          return Card(
-                            elevation: 1,
-                            margin: const EdgeInsets.only(bottom: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              leading: CircleAvatar(
-                                backgroundColor: const Color(
-                                  0xFF149C94,
-                                ).withOpacity(0.1),
-                                child: const Icon(
-                                  Icons.fact_check,
-                                  color: Color(0xFF149C94),
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // --- JUDUL KATEGORI ---
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal: 4,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Riwayat Inspeksi $kategori',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF0F3460),
+                                      ),
+                                    ),
+                                    Text(
+                                      '5 Terbaru',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade500,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              title: Text(
-                                data['nama_barang'] ?? 'Tanpa Nama',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2D3748),
-                                ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Petugas: ${data['nama_pemeriksa'] ?? '-'}',
-                                    style: const TextStyle(fontSize: 12),
+
+                              // --- DAFTAR 5 ITEM ---
+                              ...docs.map((doc) {
+                                var data = doc.data() as Map<String, dynamic>;
+                                String tanggalStr = '-';
+                                if (data['tanggal'] != null) {
+                                  DateTime tgl = (data['tanggal'] as Timestamp)
+                                      .toDate();
+                                  tanggalStr = DateFormat(
+                                    'dd MMM yyyy • HH:mm',
+                                  ).format(tgl);
+                                }
+
+                                return Card(
+                                  elevation: 1,
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  Text(
-                                    tanggalStr,
-                                    style: const TextStyle(
-                                      fontSize: 12,
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8,
+                                    ),
+                                    leading: CircleAvatar(
+                                      backgroundColor: const Color(
+                                        0xFF149C94,
+                                      ).withOpacity(0.1),
+                                      child: const Icon(
+                                        Icons.fact_check,
+                                        color: Color(0xFF149C94),
+                                      ),
+                                    ),
+                                    title: Text(
+                                      data['nama_barang'] ?? 'Tanpa Nama',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF2D3748),
+                                      ),
+                                    ),
+                                    subtitle: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Petugas: ${data['nama_pemeriksa'] ?? '-'}',
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                        Text(
+                                          tanggalStr,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    trailing: const Icon(
+                                      Icons.chevron_right,
                                       color: Colors.grey,
                                     ),
+                                    onTap: () => _showDetailDialog(data),
                                   ),
-                                ],
-                              ),
-                              trailing: const Icon(
-                                Icons.chevron_right,
-                                color: Colors.grey,
-                              ),
-                              onTap: () => _showDetailDialog(data),
-                            ),
+                                );
+                              }).toList(),
+
+                              const SizedBox(
+                                height: 15,
+                              ), // Jarak pemisah antar kategori
+                            ],
                           );
-                        },
+                        }).toList(),
                       ),
               ),
 
@@ -1697,9 +1708,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                     child: ElevatedButton.icon(
                       onPressed: _isExporting
                           ? null
-                          : () => _showExportDialog(
-                              allDocs,
-                            ), // Tetap lempar allDocs agar Excel filtering berjalan sempurna
+                          : () => _showExportDialog(allDocs),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         shape: RoundedRectangleBorder(

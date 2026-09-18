@@ -1362,6 +1362,111 @@ class _DetailAparScreenState extends State<DetailAparScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
+      bottomNavigationBar: widget.isAdmin
+          ? Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5), // Bayangan ke atas
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize:
+                      MainAxisSize.min, // Agar tingginya menyesuaikan isi
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF149C94),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(Icons.fact_check, color: Colors.white),
+                        label: const Text(
+                          'Lakukan Inspeksi Rutin',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => FormPemeriksaanScreen(
+                                docIdBarang: widget.docId,
+                                namaBarang: 'APAR $noApar',
+                                lokasi: lokasi,
+                                noApar: noApar,
+                                checklistItems: const [
+                                  'Label Pengisian Terbaca?',
+                                  'Tekanan Normal (Indikator Hijau)?',
+                                  'Safety Pin Terpasang & Segel Utuh?',
+                                  'Handle / Tuas Normal?',
+                                  'Selang & Nozzle Tidak Retak/Mampet?',
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _showEditAparDialog,
+                            icon: const Icon(Icons.edit, size: 18),
+                            label: const Text('Edit Data'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.blue.shade700,
+                              side: BorderSide(color: Colors.blue.shade700),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _hapusApar,
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.red,
+                              size: 18,
+                            ),
+                            label: const Text(
+                              'Hapus',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.red),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -1490,90 +1595,7 @@ class _DetailAparScreenState extends State<DetailAparScreen> {
               ),
             ],
             const SizedBox(height: 30),
-            if (widget.isAdmin) ...[
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF149C94),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: const Icon(Icons.fact_check, color: Colors.white),
-                  label: const Text(
-                    'Lakukan Inspeksi Rutin',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => FormPemeriksaanScreen(
-                          docIdBarang: widget.docId,
-                          namaBarang: 'APAR $noApar',
-                          lokasi: lokasi,
-                          noApar: noApar,
-                          checklistItems: const [
-                            'Label Pengisian Terbaca?',
-                            'Tekanan Normal (Indikator Hijau)?',
-                            'Safety Pin Terpasang & Segel Utuh?',
-                            'Handle / Tuas Normal?',
-                            'Selang & Nozzle Tidak Retak/Mampet?',
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 15),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _showEditAparDialog,
-                      icon: const Icon(Icons.edit, size: 18),
-                      label: const Text('Edit Data'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.blue.shade700,
-                        side: BorderSide(color: Colors.blue.shade700),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _hapusApar,
-                      icon: const Icon(
-                        Icons.delete_outline,
-                        color: Colors.red,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Hapus',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.red),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            if (widget.isAdmin) ...[SizedBox(width: double.infinity)],
           ],
         ),
       ),

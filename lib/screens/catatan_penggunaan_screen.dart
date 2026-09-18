@@ -316,29 +316,29 @@ class _CatatanPenggunaanScreenState extends State<CatatanPenggunaanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F8FF),
+      backgroundColor: Colors.blue.shade50, // <-- UPDATE WARNA BACKGROUND
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
+        backgroundColor: Colors.blue.shade900, // <-- UPDATE WARNA APPBAR
+        foregroundColor: Colors.white,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
               'Buku Catatan P3K',
-              style: TextStyle(
-                color: Color(0xFF0F3460),
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             Text(
               widget.namaKotak,
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
+              style: TextStyle(
+                color: Colors.blue.shade200,
+                fontSize: 12,
+              ), // <-- WARNA SUBTITLE
             ),
           ],
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F3460)),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -355,7 +355,22 @@ class _CatatanPenggunaanScreenState extends State<CatatanPenggunaanScreen> {
             return const Center(child: Text('Belum ada catatan penggunaan.'));
           }
 
-          var docs = snapshot.data!.docs;
+          // --- TAMBAHKAN LOGIKA SORTING DISINI ---
+          var docs = snapshot.data!.docs.toList();
+          docs.sort((a, b) {
+            var dataA = a.data() as Map<String, dynamic>;
+            var dataB = b.data() as Map<String, dynamic>;
+            Timestamp? tglA = dataA['tanggal_penggunaan'] as Timestamp?;
+            Timestamp? tglB = dataB['tanggal_penggunaan'] as Timestamp?;
+
+            if (tglA == null && tglB == null) return 0;
+            if (tglA == null) return 1;
+            if (tglB == null) return -1;
+            return tglB.compareTo(
+              tglA,
+            ); // Urutkan Descending (Terbaru ke Terlama)
+          });
+
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: docs.length,
@@ -426,7 +441,7 @@ class _CatatanPenggunaanScreenState extends State<CatatanPenggunaanScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFF149C94),
+        backgroundColor: Colors.blue.shade800, // <-- UPDATE WARNA TOMBOL
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
           'Catat Pemakaian',

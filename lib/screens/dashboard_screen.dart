@@ -114,30 +114,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           String noApar = spec['No APAR'] ?? '-';
 
                           if (status.toLowerCase() != 'tersedia') {
+                            // CONTOH UNTUK APAR (Terapkan gaya yang sama pada P3K di bawahnya)
                             listPeringatan.add(
-                              ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: Colors.red.shade100,
-                                  child: const Icon(
-                                    Icons.warning_amber_rounded,
-                                    color: Colors.red,
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.blue.shade100.withOpacity(
+                                        0.5,
+                                      ),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                  border: Border.all(
+                                    color: Colors.blue.shade50,
                                   ),
                                 ),
-                                title: Text(
-                                  'APAR No. $noApar Bermasalah',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: Colors.red.shade50,
+                                    child: const Icon(
+                                      Icons.warning_amber_rounded,
+                                      color: Colors.red,
+                                    ),
                                   ),
-                                ),
-                                subtitle: Text(
-                                  'Lokasi: ${data['lokasi'] ?? '-'} • Status: $status',
-                                ),
-                                trailing: const Text(
-                                  'Perhatian',
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
+                                  title: Text(
+                                    'APAR No. $noApar Bermasalah',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue.shade900,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    'Lokasi: ${data['lokasi'] ?? '-'} • Status: $status',
+                                    style: const TextStyle(fontSize: 12),
                                   ),
                                 ),
                               ),
@@ -162,29 +176,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                           if (butuhIsiUlang) {
                             listPeringatan.add(
-                              ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: Colors.orange.shade100,
-                                  child: const Icon(
-                                    Icons.medical_services,
-                                    color: Colors.orange,
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.blue.shade100.withOpacity(
+                                        0.5,
+                                      ),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                  border: Border.all(
+                                    color: Colors.blue.shade50,
                                   ),
                                 ),
-                                title: Text(
-                                  '${data['nama_barang'] ?? 'Kotak P3K'} Butuh Isi Ulang',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: Colors
+                                        .orange
+                                        .shade50, // Disesuaikan agar lebih soft
+                                    child: const Icon(
+                                      Icons.medical_services,
+                                      color: Colors.orange,
+                                    ),
                                   ),
-                                ),
-                                subtitle: Text(
-                                  'Lokasi: ${data['lokasi'] ?? '-'} • Item P3K ada yang kurang.',
-                                ),
-                                trailing: const Text(
-                                  'Isi Ulang',
-                                  style: TextStyle(
-                                    color: Colors.orange,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
+                                  title: Text(
+                                    '${data['nama_barang'] ?? 'Kotak P3K'} Butuh Isi Ulang',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors
+                                          .blue
+                                          .shade900, // Disamakan dengan APAR
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    'Lokasi: ${data['lokasi'] ?? '-'} • Item P3K ada yang kurang.',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  trailing: const Text(
+                                    'Isi Ulang',
+                                    style: TextStyle(
+                                      color: Colors.orange,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ),

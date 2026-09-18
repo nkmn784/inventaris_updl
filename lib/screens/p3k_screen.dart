@@ -1320,6 +1320,180 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, -5), // Bayangan ke atas
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // Agar menyesuaikan isi
+            children: [
+              // 1. Tombol Buku Catatan (Selalu Tampil)
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade900,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.menu_book, color: Colors.white),
+                  label: const Text(
+                    'Buku Catatan Penggunaan',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CatatanPenggunaanScreen(
+                          docIdBarang: widget.docId,
+                          namaKotak: namaBarang,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              // 2. Tombol Aksi Admin (Inspeksi, Edit, Hapus)
+              if (widget.isAdmin) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF149C94),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.fact_check, color: Colors.white),
+                    label: const Text(
+                      'Lakukan Inspeksi Rutin',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onPressed: () async {
+                      // <-- UBAH MENJADI ASYNC & AMBIL DATA TERBARU
+                      var snapshot = await FirebaseFirestore.instance
+                          .collection('Kotak P3K')
+                          .doc(widget.docId)
+                          .get();
+                      var latestData = snapshot.data() ?? {};
+
+                      Map<String, dynamic> currentDefisit =
+                          Map<String, dynamic>.from(
+                            latestData['defisit_p3k'] ?? {},
+                          );
+                      Map<String, dynamic> currentExpCairan =
+                          Map<String, dynamic>.from(
+                            latestData['kadaluarsa_cairan'] ?? {},
+                          );
+
+                      if (!context.mounted) return;
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FormPemeriksaanScreen(
+                            docIdBarang: widget.docId,
+                            namaBarang: namaBarang,
+                            lokasi: lokasi,
+                            checklistItems: const [
+                              'Kasa Steril',
+                              'Perban (Lebar 5 cm)',
+                              'Perban (Lebar 10 cm)',
+                              'Plester Lebar 1,25 cm',
+                              'Plester Cepat',
+                              'Kapas 25 gr',
+                              'Kain Segi Tiga (Mitela)',
+                              'Gunting',
+                              'Peniti',
+                              'Sarung Tangan Sekali Pakai',
+                              'Sarung Tangan (Pasangan)',
+                              'Masker',
+                              'Pinset',
+                              'Lampu Senter',
+                              'Gelas Cuci Mata',
+                              'Kantong Plastik Bersih',
+                              'Aquades',
+                              'Povidone Iodine',
+                              'Alkohol 70%',
+                              'Buku Panduan P3K',
+                              'Buku Catatan & Daftar Isi',
+                            ],
+                            initialDefisit: currentDefisit,
+                            initialKadaluarsa: currentExpCairan,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _showEditP3kDialog,
+                        icon: const Icon(Icons.edit, size: 18),
+                        label: const Text('Edit'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.blue.shade700,
+                          side: BorderSide(color: Colors.blue.shade700),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _hapusP3k,
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                          size: 18,
+                        ),
+                        label: const Text(
+                          'Hapus',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.red),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -1337,6 +1511,7 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
               ),
             const SizedBox(height: 20),
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -1364,38 +1539,6 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
                   Text(
                     'Nama: $namaBarang • Lokasi: $lokasi • Tipe: $tipe', // <-- UBAH BAGIAN INI
                     style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                  const Divider(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade900,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      icon: const Icon(Icons.menu_book, color: Colors.white),
-                      label: const Text(
-                        'Buku Catatan Penggunaan',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => CatatanPenggunaanScreen(
-                              docIdBarang: widget.docId,
-                              namaKotak: namaBarang,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
                   ),
                 ],
               ),
@@ -1585,121 +1728,6 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
                     ),
                   ],
                 ),
-              ),
-            ],
-            const SizedBox(height: 30),
-
-            if (widget.isAdmin) ...[
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF149C94),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: const Icon(Icons.fact_check, color: Colors.white),
-                  label: const Text(
-                    'Lakukan Inspeksi Rutin',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  onPressed: () {
-                    // Ambil data real-time terbaru dari dokumen saat ini
-                    Map<String, dynamic> currentDefisit =
-                        Map<String, dynamic>.from(
-                          currentData['defisit_p3k'] ?? {},
-                        );
-                    Map<String, dynamic> currentExpCairan =
-                        Map<String, dynamic>.from(
-                          currentData['kadaluarsa_cairan'] ?? {},
-                        );
-
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => FormPemeriksaanScreen(
-                          docIdBarang: widget.docId,
-                          namaBarang: namaBarang,
-                          lokasi: lokasi,
-                          checklistItems: const [
-                            'Kasa Steril',
-                            'Perban (Lebar 5 cm)',
-                            'Perban (Lebar 10 cm)',
-                            'Plester Lebar 1,25 cm',
-                            'Plester Cepat',
-                            'Kapas 25 gr',
-                            'Kain Segi Tiga (Mitela)',
-                            'Gunting',
-                            'Peniti',
-                            'Sarung Tangan Sekali Pakai',
-                            'Sarung Tangan (Pasangan)',
-                            'Masker',
-                            'Pinset',
-                            'Lampu Senter',
-                            'Gelas Cuci Mata',
-                            'Kantong Plastik Bersih',
-                            'Aquades',
-                            'Povidone Iodine',
-                            'Alkohol 70%',
-                            'Buku Panduan P3K',
-                            'Buku Catatan & Daftar Isi',
-                          ],
-                          initialDefisit:
-                              currentDefisit, // <-- OPER DATA DEFISIT
-                          initialKadaluarsa:
-                              currentExpCairan, // <-- OPER DATA EXPIRED
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 15),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _showEditP3kDialog,
-                      icon: const Icon(Icons.edit, size: 18),
-                      label: const Text('Edit Data'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.blue.shade700,
-                        side: BorderSide(color: Colors.blue.shade700),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _hapusP3k,
-                      icon: const Icon(
-                        Icons.delete_outline,
-                        color: Colors.red,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Hapus',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.red),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ],
           ],

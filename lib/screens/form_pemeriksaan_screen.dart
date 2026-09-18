@@ -31,8 +31,19 @@ class _FormPemeriksaanScreenState extends State<FormPemeriksaanScreen> {
 
   final TextEditingController _petugasController = TextEditingController();
   final TextEditingController _catatanController = TextEditingController();
+  final Map<String, TextEditingController> _qtyControllers = {};
   bool _isLoading = false;
   bool _isP3K = false;
+
+  @override
+  void dispose() {
+    _petugasController.dispose();
+    _catatanController.dispose();
+    for (var controller in _qtyControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -54,12 +65,16 @@ class _FormPemeriksaanScreenState extends State<FormPemeriksaanScreen> {
           if (savedExp.isEmpty) savedExp = '-';
           _checklistResults[item] = {'status': 'Ada', 'nilai': savedExp};
         } else {
-          // Otomatis isi jumlah defisit sesuai data master saat ini
           int savedDefisit = widget.initialDefisit?[item] ?? 0;
+          int initialVal = savedDefisit == 999 ? 0 : savedDefisit;
           _checklistResults[item] = {
             'status': savedDefisit == 999 ? 'Hilang' : 'Ada',
-            'nilai': savedDefisit == 999 ? 0 : savedDefisit,
+            'nilai': initialVal,
           };
+          // --- INISIALISASI CONTROLLER ---
+          _qtyControllers[item] = TextEditingController(
+            text: initialVal.toString(),
+          );
         }
       } else {
         _checklistResults[item] = {'status': 'Ada', 'nilai': true};
@@ -271,23 +286,27 @@ class _FormPemeriksaanScreenState extends State<FormPemeriksaanScreen> {
                 ),
                 // DROPDOWN STATUS ADA / HILANG
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
+                  height: 32, // <-- BATASI TINGGI AGAR TIDAK KEBESARAN
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: isHilang ? Colors.red.shade50 : Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(
+                      8,
+                    ), // Sudut membulat modern
                     border: Border.all(
                       color: isHilang ? Colors.red : Colors.green,
                     ),
                   ),
                   child: DropdownButton<String>(
                     value: status,
+                    isDense:
+                        true, // <-- PENTING: Membuat dropdown lebih ramping
                     underline: const SizedBox(),
                     icon: Icon(
                       Icons.arrow_drop_down,
                       color: isHilang ? Colors.red : Colors.green,
+                      size: 20, // Icon diperkecil
                     ),
                     style: TextStyle(
                       fontSize: 12,
@@ -300,6 +319,10 @@ class _FormPemeriksaanScreenState extends State<FormPemeriksaanScreen> {
                     onChanged: (val) {
                       setState(() {
                         _checklistResults[item]!['status'] = val!;
+                        if (val == 'Hilang' && !isLiquid) {
+                          _checklistResults[item]!['nilai'] = 0;
+                          _qtyControllers[item]!.text = '0';
+                        }
                       });
                     },
                   ),
@@ -347,23 +370,28 @@ class _FormPemeriksaanScreenState extends State<FormPemeriksaanScreen> {
                           ),
                           child: Row(
                             children: [
+                              // TOMBOL MINUS
                               IconButton(
                                 icon: const Icon(Icons.remove, size: 18),
                                 color: Colors.red,
                                 onPressed: nilai > 0
                                     ? () {
-                                        setState(
-                                          () =>
-                                              _checklistResults[item]!['nilai'] =
-                                                  nilai - 1,
-                                        );
+                                        int newVal = nilai - 1;
+                                        setState(() {
+                                          _checklistResults[item]!['nilai'] =
+                                              newVal;
+                                          _qtyControllers[item]!.text = newVal
+                                              .toString();
+                                        });
                                       }
                                     : null,
                               ),
+                              // TEXTFIELD MANUAL INPUT
                               SizedBox(
-                                width: 30,
-                                child: Text(
-                                  '$nilai',
+                                width: 35,
+                                child: TextField(
+                                  controller: _qtyControllers[item],
+                                  keyboardType: TextInputType.number,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
@@ -372,16 +400,31 @@ class _FormPemeriksaanScreenState extends State<FormPemeriksaanScreen> {
                                         ? Colors.red
                                         : Colors.green,
                                   ),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  onChanged: (val) {
+                                    int parsed = int.tryParse(val) ?? 0;
+                                    setState(() {
+                                      _checklistResults[item]!['nilai'] =
+                                          parsed;
+                                    });
+                                  },
                                 ),
                               ),
+                              // TOMBOL PLUS
                               IconButton(
                                 icon: const Icon(Icons.add, size: 18),
                                 color: Colors.blue,
                                 onPressed: () {
-                                  setState(
-                                    () => _checklistResults[item]!['nilai'] =
-                                        nilai + 1,
-                                  );
+                                  int newVal = nilai + 1;
+                                  setState(() {
+                                    _checklistResults[item]!['nilai'] = newVal;
+                                    _qtyControllers[item]!.text = newVal
+                                        .toString();
+                                  });
                                 },
                               ),
                             ],
