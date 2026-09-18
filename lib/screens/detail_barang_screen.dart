@@ -17,7 +17,7 @@ class DetailBarangScreen extends StatelessWidget {
     if (isoDate == null || isoDate.isEmpty) return '-';
     try {
       DateTime dt = DateTime.parse(isoDate);
-      return '${dt.day}-${dt.month}-${dt.year}';
+      return '${dt.day.toString().padLeft(2, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.year}';
     } catch (_) {
       return isoDate;
     }
@@ -39,21 +39,61 @@ class DetailBarangScreen extends StatelessWidget {
       String dateString = element['tanggal'] ?? element['tgl'] ?? '';
       DateTime? parsedDate = DateTime.tryParse(dateString);
 
-      if (parsedDate == null)
-        return true; // Pertahankan jika format tanggal tidak valid
+      if (parsedDate == null) return true;
       return parsedDate.isAfter(batasWaktu);
     }).toList();
 
-    // Jika ada data yang berumur lebih dari 1 tahun, perbarui Firestore
     if (riwayatTerbaru.length != riwayatAsli.length) {
       FirestoreService()
-          .editBarang(kategori, docId, {keyField: riwayatTerbaru})
+          .updateBarang(kategori, docId, {keyField: riwayatTerbaru})
           .catchError((e) {
             debugPrint('Gagal membersihkan riwayat $kategori di Firestore: $e');
           });
     }
 
     return riwayatTerbaru;
+  }
+
+  Widget _buildModernContainer({required Widget child, Color? color}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color ?? Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.shade100.withOpacity(0.5),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _rowInfo(String label, String val) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+          ),
+          Text(
+            val,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2D3748),
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -68,14 +108,32 @@ class DetailBarangScreen extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
-            appBar: AppBar(title: Text('Detail $kategori')),
+            backgroundColor: Colors.blue.shade50,
+            appBar: AppBar(
+              elevation: 0,
+              backgroundColor: Colors.blue.shade900,
+              foregroundColor: Colors.white,
+              title: Text(
+                'Detail $kategori',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
             body: const Center(child: CircularProgressIndicator()),
           );
         }
 
         if (!snapshot.hasData || !snapshot.data!.exists) {
           return Scaffold(
-            appBar: AppBar(title: Text('Detail $kategori')),
+            backgroundColor: Colors.blue.shade50,
+            appBar: AppBar(
+              elevation: 0,
+              backgroundColor: Colors.blue.shade900,
+              foregroundColor: Colors.white,
+              title: Text(
+                'Detail $kategori',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
             body: const Center(
               child: Text('Data telah dihapus atau tidak ditemukan.'),
             ),
@@ -84,7 +142,6 @@ class DetailBarangScreen extends StatelessWidget {
 
         final currentData = snapshot.data!.data() as Map<String, dynamic>;
 
-        // Menyaring dan membersihkan riwayat pergerakan stok untuk setiap kategori
         List<dynamic> riwayatStokApd = _filterDanBersihkanRiwayat(
           kategori,
           documentId,
@@ -105,47 +162,108 @@ class DetailBarangScreen extends StatelessWidget {
         );
 
         return Scaffold(
+          backgroundColor: Colors.blue.shade50,
           appBar: AppBar(
-            title: Text('Detail $kategori'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EditBarangScreen(
-                        documentId: documentId,
-                        dataBarang: currentData,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () => _konfirmasiHapus(context, kategori),
-              ),
-            ],
+            elevation: 0,
+            backgroundColor: Colors.blue.shade900,
+            foregroundColor: Colors.white,
+            title: Text(
+              'Detail $kategori',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
+
+          // AREA SCROLL: Hanya berisi detail data dan riwayat
           body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.only(
+              left: 20.0,
+              right: 20.0,
+              top: 20.0,
+              bottom: 40.0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (kategori == 'APD') ...[
-                  _buildDetailApd(context, currentData),
+                  _buildDetailApd(currentData),
                   _buildRiwayatPergerakanStok(riwayatStokApd),
-                ],
-                if (kategori == 'ATK') ...[
-                  _buildDetailAtk(context, currentData),
-                  _buildRiwayatPergerakanStok(riwayatStokAtk),
-                ],
-                if (kategori == 'Amenities') ...[
-                  _buildDetailAmenities(context, currentData),
-                  _buildRiwayatPergerakanStok(riwayatStokAmenities),
+                ] else ...[
+                  _buildDetailAtkAmenities(currentData),
+                  _buildRiwayatPergerakanStok(
+                    kategori == 'ATK' ? riwayatStokAtk : riwayatStokAmenities,
+                  ),
                 ],
               ],
+            ),
+          ),
+
+          // AREA FIXED BOTTOM BAR: Tombol akan selalu terlihat di bagian bawah layar
+          bottomNavigationBar: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.shade900.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, -4),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EditBarangScreen(
+                              documentId: documentId,
+                              dataBarang: currentData,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: const Text('Edit Data'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.blue.shade700,
+                        side: BorderSide(color: Colors.blue.shade700),
+                        backgroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _konfirmasiHapus(context, kategori),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.red,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Hapus',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.red),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -153,122 +271,118 @@ class DetailBarangScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailAmenities(
-    BuildContext context,
-    Map<String, dynamic> data,
-  ) {
+  // --- WIDGET DETAIL ATK & AMENITIES ---
+  Widget _buildDetailAtkAmenities(Map<String, dynamic> data) {
+    String catatan = (data['keterangan'] ?? data['catatan'])?.toString() ?? '';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Card(
-          elevation: 3,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  data['nama_barang'] ?? 'Tanpa Nama Barang',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+        _buildModernContainer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                data['nama_barang'] ?? 'Tanpa Nama Barang',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade900,
                 ),
-                const Divider(height: 24, thickness: 1),
-                _buildInfoRow('Satuan', data['satuan']?.toString() ?? '-'),
-              ],
-            ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Satuan: ${data['satuan'] ?? '-'}',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+              const Divider(height: 24),
+
+              _rowInfo(
+                'Tanggal Transaksi Terakhir',
+                _formatDate(data['tanggal_transaksi']),
+              ),
+              _rowInfo(
+                'Barang Masuk Terakhir',
+                '${data['masuk'] ?? '0'} ${data['satuan'] ?? ''}',
+              ),
+              _rowInfo(
+                'Barang Keluar Terakhir',
+                '${data['keluar'] ?? '0'} ${data['satuan'] ?? ''}',
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 3,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Data Transaksi',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const Divider(),
-                _buildInfoRow(
-                  'Tanggal Transaksi',
-                  _formatDate(data['tanggal_transaksi']),
-                ),
-                _buildInfoRow(
-                  'Barang Masuk',
-                  '${data['masuk']?.toString() ?? '0'} ${data['satuan'] ?? ''}',
-                ),
-                _buildInfoRow(
-                  'Barang Keluar',
-                  '${data['keluar']?.toString() ?? '0'} ${data['satuan'] ?? ''}',
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 3,
-          color: Colors.blue.shade50,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Sisa Persediaan',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                ),
-                const Divider(),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Jumlah Stock Saat Ini',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      '${data['jumlah'] ?? data['sisa_jumlah'] ?? data['stok_sekarang'] ?? '0'} ${data['satuan'] ?? ''}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Colors.blueAccent,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        if ((data['keterangan'] ?? data['catatan']) != null &&
-            (data['keterangan'] ?? data['catatan']).toString().isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Card(
-            elevation: 3,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
+        const SizedBox(height: 15),
+
+        _buildModernContainer(
+          color: Colors.blue.shade700,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Catatan',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const Divider(),
                   Text(
-                    (data['keterangan'] ?? data['catatan']).toString(),
-                    style: const TextStyle(fontStyle: FontStyle.italic),
+                    'Sisa Persediaan Saat Ini',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Total Stok Aktif',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ],
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${data['jumlah'] ?? data['sisa_jumlah'] ?? data['stok_sekarang'] ?? '0'} ${data['satuan'] ?? ''}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: Colors.blue.shade900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        if (catatan.isNotEmpty) ...[
+          const SizedBox(height: 15),
+          _buildModernContainer(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Catatan Khusus',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2D3748),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  catatan,
+                  style: TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey.shade700,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -276,119 +390,104 @@ class DetailBarangScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailAtk(BuildContext context, Map<String, dynamic> data) {
+  // --- WIDGET DETAIL APD ---
+  Widget _buildDetailApd(Map<String, dynamic> data) {
+    String catatan = (data['keterangan'] ?? data['catatan'])?.toString() ?? '';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Card(
-          elevation: 3,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  data['nama_barang'] ?? 'Tanpa Nama Barang',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+        _buildModernContainer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                data['peralatan'] ?? 'Tanpa Nama Peralatan',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade900,
                 ),
-                const Divider(height: 24, thickness: 1),
-                _buildInfoRow('Satuan', data['satuan']?.toString() ?? '-'),
-              ],
-            ),
+              ),
+              const Divider(height: 24),
+              _rowInfo('Masa Pakai', data['masa_pakai'] ?? '-'),
+              _rowInfo('Tanggal Kadaluarsa', data['tanggal_kadaluarsa'] ?? '-'),
+              _rowInfo('Kondisi', data['kondisi'] ?? '-'),
+              _rowInfo('Tahun Pembelian', data['pembelian'] ?? '-'),
+            ],
           ),
         ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 3,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Data Transaksi',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const Divider(),
-                _buildInfoRow(
-                  'Tanggal Transaksi',
-                  _formatDate(data['tanggal_transaksi']),
-                ),
-                _buildInfoRow(
-                  'Barang Masuk',
-                  '${data['masuk']?.toString() ?? '0'} ${data['satuan'] ?? ''}',
-                ),
-                _buildInfoRow(
-                  'Barang Keluar',
-                  '${data['keluar']?.toString() ?? '0'} ${data['satuan'] ?? ''}',
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 3,
-          color: Colors.blue.shade50,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Sisa Persediaan',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                ),
-                const Divider(),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Jumlah Stock Saat Ini',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      '${data['jumlah'] ?? data['sisa_jumlah'] ?? data['stok_sekarang'] ?? '0'} ${data['satuan'] ?? ''}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Colors.blueAccent,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        if ((data['keterangan'] ?? data['catatan']) != null &&
-            (data['keterangan'] ?? data['catatan']).toString().isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Card(
-            elevation: 3,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
+        const SizedBox(height: 15),
+
+        _buildModernContainer(
+          color: Colors.blue.shade700,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Catatan',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const Divider(),
                   Text(
-                    (data['keterangan'] ?? data['catatan']).toString(),
-                    style: const TextStyle(fontStyle: FontStyle.italic),
+                    'Sisa Persediaan Saat Ini',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Total Stok APD',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ],
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${data['jumlah'] ?? data['sisa_jumlah'] ?? '0'}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: Colors.blue.shade900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        if (catatan.isNotEmpty) ...[
+          const SizedBox(height: 15),
+          _buildModernContainer(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Catatan Transaksi Terakhir',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2D3748),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  catatan,
+                  style: TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey.shade700,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -396,23 +495,27 @@ class DetailBarangScreen extends StatelessWidget {
     );
   }
 
+  // --- WIDGET RIWAYAT PERGERAKAN ---
   Widget _buildRiwayatPergerakanStok(List<dynamic> riwayatStok) {
     if (riwayatStok.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 16),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-          child: Text(
-            'Riwayat Pergerakan Stock:',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        const SizedBox(height: 24),
+        Text(
+          'Riwayat Pergerakan Stock',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: Colors.blue.shade900,
           ),
         ),
+        const SizedBox(height: 12),
         ListView.builder(
           shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
+          physics:
+              const NeverScrollableScrollPhysics(), // Mematikan scroll listview agar bisa digulir bersama layar
           itemCount: riwayatStok.length,
           itemBuilder: (context, index) {
             final riwayat = riwayatStok[riwayatStok.length - 1 - index];
@@ -422,7 +525,7 @@ class DetailBarangScreen extends StatelessWidget {
               if (dateString.isNotEmpty) {
                 DateTime dt = DateTime.parse(dateString);
                 tglFormat =
-                    "${dt.day.toString().padLeft(2, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.year} Jam ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+                    "${dt.day.toString().padLeft(2, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.year}  •  ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
               }
             } catch (_) {
               tglFormat = dateString;
@@ -450,94 +553,104 @@ class DetailBarangScreen extends StatelessWidget {
             bool isNambah = selisih > 0;
             bool isBerkurang = selisih < 0;
             Color badgeColor = isNambah
-                ? Colors.green
-                : (isBerkurang ? Colors.red : Colors.grey);
+                ? Colors.green.shade700
+                : (isBerkurang ? Colors.red.shade700 : Colors.grey.shade700);
+            Color bgColor = isNambah
+                ? Colors.green.shade50
+                : (isBerkurang ? Colors.red.shade50 : Colors.grey.shade100);
             String tanda = isNambah ? '+' : '';
 
             String catatan = riwayat['catatan'] ?? riwayat['keterangan'] ?? '-';
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              elevation: 0,
-              color: Colors.amber.shade50,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: Colors.amber.shade200),
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          tglFormat.isEmpty ? '-' : tglFormat,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.black87,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        tglFormat.isEmpty ? '-' : tglFormat,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: bgColor,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          selisih == 0 ? 'Tetap' : '$tanda$selisih',
+                          style: TextStyle(
+                            color: badgeColor,
                             fontWeight: FontWeight.bold,
+                            fontSize: 12,
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: badgeColor.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: badgeColor.withOpacity(0.5),
-                            ),
-                          ),
-                          child: Text(
-                            selisih == 0 ? 'Tetap' : '$tanda$selisih',
-                            style: TextStyle(
-                              color: badgeColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Text(
+                        'Stok Awal: $jumlahLama',
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 13,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Text(
-                          'Stok: $jumlahLama ',
-                          style: const TextStyle(
-                            decoration: TextDecoration.lineThrough,
-                            color: Colors.grey,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const Icon(
-                          Icons.arrow_forward,
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Icon(
+                          Icons.arrow_forward_rounded,
                           size: 14,
                           color: Colors.grey,
                         ),
-                        Text(
-                          ' Jumlah Terakhir: $jumlahBaru',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
+                      ),
+                      Text(
+                        'Akhir: $jumlahBaru',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Color(0xFF2D3748),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
+                      ),
+                    ],
+                  ),
+                  if (catatan != '-') ...[
+                    const SizedBox(height: 6),
                     Text(
                       'Catatan: $catatan',
-                      style: const TextStyle(
-                        fontSize: 14,
+                      style: TextStyle(
+                        fontSize: 12,
                         fontStyle: FontStyle.italic,
+                        color: Colors.grey.shade600,
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
             );
           },
@@ -546,64 +659,42 @@ class DetailBarangScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailApd(BuildContext context, Map<String, dynamic> data) {
-    return Card(
-      elevation: 3,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              data['peralatan'] ?? 'Tanpa Nama Peralatan',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const Divider(height: 24, thickness: 1),
-            _buildInfoRow('Jumlah', data['jumlah']?.toString() ?? '-'),
-            _buildInfoRow('Masa Pakai', data['masa_pakai'] ?? '-'),
-            _buildInfoRow(
-              'Tanggal Kadaluarsa',
-              data['tanggal_kadaluarsa'] ?? '-',
-            ),
-            _buildInfoRow('Kondisi', data['kondisi'] ?? '-'),
-            _buildInfoRow('Pembelian', data['pembelian'] ?? '-'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.grey)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
+  // --- DIALOG KONFIRMASI HAPUS ---
   void _konfirmasiHapus(BuildContext context, String kategori) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hapus Data'),
-        content: const Text('Yakin hapus data ini?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Hapus Data?',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Data ini akan dihapus secara permanen. Apakah Anda yakin?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Batal'),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
             onPressed: () async {
               Navigator.pop(ctx);
               await FirestoreService().hapusBarang(kategori, documentId);
-              if (context.mounted) Navigator.pop(context);
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Data $kategori berhasil dihapus')),
+                );
+              }
             },
-            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

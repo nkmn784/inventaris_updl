@@ -19,12 +19,17 @@ class EditBarangScreen extends StatefulWidget {
 class _EditBarangScreenState extends State<EditBarangScreen> {
   // === VARIABEL APD ===
   late TextEditingController _peralatanApdCtrl;
-  late TextEditingController _jumlahApdCtrl;
+  late TextEditingController _masukApdCtrl;
+  late TextEditingController _keluarApdCtrl;
+  late TextEditingController _sisaJumlahApdCtrl;
+  late TextEditingController _catatanApdCtrl;
+  int _stokAwalApd = 0;
+  DateTime? _tanggalTransaksiApd;
+
   late TextEditingController _masaPakaiApdCtrl;
   late TextEditingController _tglKadaluarsaApdCtrl;
   late TextEditingController _kondisiApdCtrl;
   late TextEditingController _pembelianApdCtrl;
-  late TextEditingController _keteranganUpdateApdCtrl;
 
   // === VARIABEL ATK ===
   late TextEditingController _namaBarangAtkCtrl;
@@ -71,14 +76,10 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
   void initState() {
     super.initState();
     _kategori = widget.dataBarang['kategori'] ?? 'APD';
-    _keteranganUpdateApdCtrl = TextEditingController();
 
     if (_kategori == 'APD') {
       _peralatanApdCtrl = TextEditingController(
         text: widget.dataBarang['peralatan'] ?? '',
-      );
-      _jumlahApdCtrl = TextEditingController(
-        text: widget.dataBarang['jumlah']?.toString() ?? '',
       );
       _masaPakaiApdCtrl = TextEditingController(
         text: widget.dataBarang['masa_pakai'] ?? '',
@@ -92,6 +93,19 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
       _pembelianApdCtrl = TextEditingController(
         text: widget.dataBarang['pembelian'] ?? '',
       );
+
+      _masukApdCtrl = TextEditingController();
+      _keluarApdCtrl = TextEditingController();
+
+      _stokAwalApd =
+          int.tryParse(widget.dataBarang['sisa_jumlah']?.toString() ?? '') ??
+          int.tryParse(widget.dataBarang['jumlah']?.toString() ?? '') ??
+          0;
+
+      _sisaJumlahApdCtrl = TextEditingController(text: _stokAwalApd.toString());
+
+      // FORM CATATAN DIKOSONGKAN UNTUK TRANSAKSI BARU
+      _catatanApdCtrl = TextEditingController();
     } else if (_kategori == 'ATK') {
       _namaBarangAtkCtrl = TextEditingController(
         text: widget.dataBarang['nama_barang'] ?? '',
@@ -113,12 +127,8 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
 
       _sisaJumlahAtkCtrl = TextEditingController(text: _stokAwalAtk.toString());
 
-      _catatanAtkCtrl = TextEditingController(
-        text:
-            widget.dataBarang['keterangan'] ??
-            widget.dataBarang['catatan'] ??
-            '',
-      );
+      // FORM CATATAN DIKOSONGKAN UNTUK TRANSAKSI BARU
+      _catatanAtkCtrl = TextEditingController();
 
       if (widget.dataBarang['tanggal_transaksi'] != null) {
         _tanggalTransaksiAtk = DateTime.tryParse(
@@ -150,12 +160,8 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
         text: _stokAwalAmenities.toString(),
       );
 
-      _catatanAmenitiesCtrl = TextEditingController(
-        text:
-            widget.dataBarang['keterangan'] ??
-            widget.dataBarang['catatan'] ??
-            '',
-      );
+      // FORM CATATAN DIKOSONGKAN UNTUK TRANSAKSI BARU
+      _catatanAmenitiesCtrl = TextEditingController();
 
       if (widget.dataBarang['tanggal_transaksi'] != null) {
         _tanggalTransaksiAmenities = DateTime.tryParse(
@@ -169,10 +175,12 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
 
   @override
   void dispose() {
-    _keteranganUpdateApdCtrl.dispose();
     if (_kategori == 'APD') {
       _peralatanApdCtrl.dispose();
-      _jumlahApdCtrl.dispose();
+      _masukApdCtrl.dispose();
+      _keluarApdCtrl.dispose();
+      _sisaJumlahApdCtrl.dispose();
+      _catatanApdCtrl.dispose();
       _masaPakaiApdCtrl.dispose();
       _tglKadaluarsaApdCtrl.dispose();
       _kondisiApdCtrl.dispose();
@@ -193,6 +201,14 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
       _catatanAmenitiesCtrl.dispose();
     }
     super.dispose();
+  }
+
+  void _hitungTotalStokApd() {
+    int masuk = int.tryParse(_masukApdCtrl.text) ?? 0;
+    int keluar = int.tryParse(_keluarApdCtrl.text) ?? 0;
+    setState(() {
+      _sisaJumlahApdCtrl.text = (_stokAwalApd + masuk - keluar).toString();
+    });
   }
 
   void _hitungTotalStokAtk() {
@@ -227,30 +243,41 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
       Map<String, dynamic> dataUpdate = {};
 
       if (_kategori == 'APD') {
+        int masuk = int.tryParse(_masukApdCtrl.text) ?? 0;
+        int keluar = int.tryParse(_keluarApdCtrl.text) ?? 0;
+        int sisaJumlahBaru =
+            int.tryParse(_sisaJumlahApdCtrl.text) ?? _stokAwalApd;
+        String waktuSekarang = DateTime.now().toIso8601String();
+
         dataUpdate.addAll({
           'peralatan': _peralatanApdCtrl.text,
-          'jumlah': _jumlahApdCtrl.text,
           'masa_pakai': _masaPakaiApdCtrl.text,
           'tanggal_kadaluarsa': _tglKadaluarsaApdCtrl.text,
           'kondisi': _kondisiApdCtrl.text,
           'pembelian': _pembelianApdCtrl.text,
+          'masuk': masuk,
+          'keluar': keluar,
+          'jumlah': sisaJumlahBaru,
+          'sisa_jumlah': sisaJumlahBaru,
+          'stok_sekarang': sisaJumlahBaru,
+          'tanggal_transaksi': waktuSekarang,
+          'keterangan': _catatanApdCtrl.text,
         });
 
-        int jumlahLama =
-            int.tryParse(widget.dataBarang['jumlah']?.toString() ?? '0') ?? 0;
-        int jumlahBaru = int.tryParse(_jumlahApdCtrl.text) ?? 0;
-        String keteranganApd = _keteranganUpdateApdCtrl.text.trim();
-
-        if (jumlahLama != jumlahBaru || keteranganApd.isNotEmpty) {
+        if (_stokAwalApd != sisaJumlahBaru ||
+            masuk > 0 ||
+            keluar > 0 ||
+            _catatanApdCtrl.text.isNotEmpty) {
           Map<String, dynamic> riwayatApdBaru = {
-            'tanggal': DateTime.now().toIso8601String(),
-            'jumlah_lama': jumlahLama,
-            'jumlah_baru': jumlahBaru,
-            'keterangan': keteranganApd.isEmpty
-                ? 'Penyesuaian / Update stok'
-                : keteranganApd,
+            'tanggal': waktuSekarang,
+            'masuk': masuk,
+            'keluar': keluar,
+            'jumlah_lama': _stokAwalApd,
+            'jumlah_baru': sisaJumlahBaru,
+            'catatan': _catatanApdCtrl.text.isEmpty
+                ? 'Update data APD'
+                : _catatanApdCtrl.text,
           };
-
           dataUpdate['riwayat_jumlah_apd'] = FieldValue.arrayUnion([
             riwayatApdBaru,
           ]);
@@ -289,7 +316,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
                 ? 'Update data ATK'
                 : _catatanAtkCtrl.text,
           };
-
           dataUpdate['riwayat_stok_atk'] = FieldValue.arrayUnion([
             riwayatAtkBaru,
           ]);
@@ -328,7 +354,6 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
                 ? 'Update data AMENITIES'
                 : _catatanAmenitiesCtrl.text,
           };
-
           dataUpdate['riwayat_stok_amenities'] = FieldValue.arrayUnion([
             riwayatAmenitiesBaru,
           ]);
@@ -366,33 +391,125 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
     }
   }
 
+  // Desain Input Form universal bergaya Modern-Minimalis
+  InputDecoration _inputDecor(
+    String label, {
+    String? hint,
+    Widget? suffixIcon,
+    bool isReadOnly = false,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: isReadOnly ? Colors.grey.shade200 : Colors.grey.shade50,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Edit Data $_kategori')),
+      backgroundColor: Colors.blue.shade50,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.blue.shade900,
+        foregroundColor: Colors.white,
+        title: Text(
+          'Edit Data $_kategori',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            if (_kategori == 'APD') _buildFormEditApd(),
-            if (_kategori == 'ATK') _buildFormEditAtk(),
-            if (_kategori == 'Amenities') _buildFormEditAmenities(),
-
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _updateData,
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'Simpan Perubahan',
-                        style: TextStyle(fontSize: 16),
-                      ),
+        padding: const EdgeInsets.all(20.0),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blue.shade100.withOpacity(0.5),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
               ),
-            ),
-          ],
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Form Edit $_kategori',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F3460),
+                    ),
+                  ),
+                  Icon(
+                    _kategori == 'APD'
+                        ? Icons.health_and_safety
+                        : _kategori == 'ATK'
+                        ? Icons.edit_document
+                        : Icons.category,
+                    color: Colors.blue.shade700,
+                  ),
+                ],
+              ),
+              const Divider(height: 30),
+
+              if (_kategori == 'APD') _buildFormEditApd(),
+              if (_kategori == 'ATK') _buildFormEditAtk(),
+              if (_kategori == 'Amenities') _buildFormEditAmenities(),
+
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                height: 45,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade700,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _isLoading ? null : _updateData,
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Simpan Perubahan',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -402,37 +519,35 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'EDIT DATA AMENITIES',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
         TextField(
           controller: _namaBarangAmenitiesCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Nama Barang',
-            border: OutlineInputBorder(),
-          ),
+          decoration: _inputDecor('Nama Barang'),
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           value: _satuanAmenitiesTerpilih,
-          decoration: const InputDecoration(
-            labelText: 'Satuan',
-            border: OutlineInputBorder(),
-          ),
+          decoration: _inputDecor('Satuan'),
           items: _listSatuanAmenities
               .map((e) => DropdownMenuItem(value: e, child: Text(e)))
               .toList(),
           onChanged: (val) => setState(() => _satuanAmenitiesTerpilih = val!),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         const Text(
-          'Data Transaksi / Pergerakan Barang',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          'Data Transaksi / Pergerakan',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0F3460),
+          ),
         ),
         const SizedBox(height: 8),
-        InkWell(
+        TextFormField(
+          readOnly: true,
+          decoration: _inputDecor(
+            'Tanggal Transaksi',
+            suffixIcon: const Icon(Icons.calendar_month, color: Colors.blue),
+          ),
           onTap: () async {
             DateTime? d = await _selectDate(
               context,
@@ -440,22 +555,10 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
             );
             if (d != null) setState(() => _tanggalTransaksiAmenities = d);
           },
-          child: InputDecorator(
-            decoration: const InputDecoration(
-              labelText: 'Tanggal Transaksi',
-              border: OutlineInputBorder(),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _tanggalTransaksiAmenities == null
-                      ? 'Pilih Tanggal'
-                      : '${_tanggalTransaksiAmenities!.day}-${_tanggalTransaksiAmenities!.month}-${_tanggalTransaksiAmenities!.year}',
-                ),
-                const Icon(Icons.calendar_month, color: Colors.blueAccent),
-              ],
-            ),
+          controller: TextEditingController(
+            text: _tanggalTransaksiAmenities == null
+                ? 'Pilih Tanggal'
+                : '${_tanggalTransaksiAmenities!.day}-${_tanggalTransaksiAmenities!.month}-${_tanggalTransaksiAmenities!.year}',
           ),
         ),
         const SizedBox(height: 12),
@@ -466,11 +569,7 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
                 controller: _masukAmenitiesCtrl,
                 keyboardType: TextInputType.number,
                 onChanged: (_) => _hitungTotalStokAmenities(),
-                decoration: const InputDecoration(
-                  labelText: 'Barang Masuk (+)',
-                  border: OutlineInputBorder(),
-                  hintText: '0',
-                ),
+                decoration: _inputDecor('Masuk (+)', hint: '0'),
               ),
             ),
             const SizedBox(width: 12),
@@ -479,37 +578,47 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
                 controller: _keluarAmenitiesCtrl,
                 keyboardType: TextInputType.number,
                 onChanged: (_) => _hitungTotalStokAmenities(),
-                decoration: const InputDecoration(
-                  labelText: 'Barang Keluar (-)',
-                  border: OutlineInputBorder(),
-                  hintText: '0',
-                ),
+                decoration: _inputDecor('Keluar (-)', hint: '0'),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         TextField(
           controller: _sisaJumlahAmenitiesCtrl,
           readOnly: true,
           decoration: InputDecoration(
-            labelText: 'Jumlah Stock Saat Ini',
-            border: const OutlineInputBorder(),
+            labelText: 'Total Stok Saat Ini',
+            helperText: 'Otomatis: (Lama + Masuk - Keluar)',
+            helperStyle: TextStyle(color: Colors.blue.shade700, fontSize: 11),
             filled: true,
-            fillColor: Colors.grey.shade200,
-            helperText: 'Otomatis: (Stok Lama + Masuk - Keluar)',
-            helperStyle: const TextStyle(color: Colors.blue),
+            fillColor: Colors.blue.shade50,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.blue.shade200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.blue.shade200),
+            ),
           ),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: Colors.blue.shade900,
+          ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         TextField(
           controller: _catatanAmenitiesCtrl,
           maxLines: 2,
-          decoration: const InputDecoration(
-            labelText: 'Catatan',
-            hintText: 'Cth: Pengadaan rutin bulanan / Diambil tim B',
-            border: OutlineInputBorder(),
+          decoration: _inputDecor(
+            'Catatan',
+            hint: 'Cth: Pengadaan rutin bulanan',
           ),
         ),
       ],
@@ -520,57 +629,43 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'EDIT DATA ALAT TULIS KANTOR (ATK)',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
         TextField(
           controller: _namaBarangAtkCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Nama Barang',
-            border: OutlineInputBorder(),
-          ),
+          decoration: _inputDecor('Nama Barang'),
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           value: _satuanAtkTerpilih,
-          decoration: const InputDecoration(
-            labelText: 'Satuan',
-            border: OutlineInputBorder(),
-          ),
+          decoration: _inputDecor('Satuan'),
           items: _listSatuanAtk
               .map((e) => DropdownMenuItem(value: e, child: Text(e)))
               .toList(),
           onChanged: (val) => setState(() => _satuanAtkTerpilih = val!),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         const Text(
-          'Data Transaksi / Pergerakan Barang',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          'Data Transaksi / Pergerakan',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0F3460),
+          ),
         ),
         const SizedBox(height: 8),
-        InkWell(
+        TextFormField(
+          readOnly: true,
+          decoration: _inputDecor(
+            'Tanggal Transaksi',
+            suffixIcon: const Icon(Icons.calendar_month, color: Colors.blue),
+          ),
           onTap: () async {
             DateTime? d = await _selectDate(context, _tanggalTransaksiAtk);
             if (d != null) setState(() => _tanggalTransaksiAtk = d);
           },
-          child: InputDecorator(
-            decoration: const InputDecoration(
-              labelText: 'Tanggal Transaksi',
-              border: OutlineInputBorder(),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _tanggalTransaksiAtk == null
-                      ? 'Pilih Tanggal'
-                      : '${_tanggalTransaksiAtk!.day}-${_tanggalTransaksiAtk!.month}-${_tanggalTransaksiAtk!.year}',
-                ),
-                const Icon(Icons.calendar_month, color: Colors.blueAccent),
-              ],
-            ),
+          controller: TextEditingController(
+            text: _tanggalTransaksiAtk == null
+                ? 'Pilih Tanggal'
+                : '${_tanggalTransaksiAtk!.day}-${_tanggalTransaksiAtk!.month}-${_tanggalTransaksiAtk!.year}',
           ),
         ),
         const SizedBox(height: 12),
@@ -581,11 +676,7 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
                 controller: _masukAtkCtrl,
                 keyboardType: TextInputType.number,
                 onChanged: (_) => _hitungTotalStokAtk(),
-                decoration: const InputDecoration(
-                  labelText: 'Barang Masuk (+)',
-                  border: OutlineInputBorder(),
-                  hintText: '0',
-                ),
+                decoration: _inputDecor('Masuk (+)', hint: '0'),
               ),
             ),
             const SizedBox(width: 12),
@@ -594,37 +685,47 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
                 controller: _keluarAtkCtrl,
                 keyboardType: TextInputType.number,
                 onChanged: (_) => _hitungTotalStokAtk(),
-                decoration: const InputDecoration(
-                  labelText: 'Barang Keluar (-)',
-                  border: OutlineInputBorder(),
-                  hintText: '0',
-                ),
+                decoration: _inputDecor('Keluar (-)', hint: '0'),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         TextField(
           controller: _sisaJumlahAtkCtrl,
           readOnly: true,
           decoration: InputDecoration(
-            labelText: 'Jumlah Stock Saat Ini',
-            border: const OutlineInputBorder(),
+            labelText: 'Total Stok Saat Ini',
+            helperText: 'Otomatis: (Lama + Masuk - Keluar)',
+            helperStyle: TextStyle(color: Colors.blue.shade700, fontSize: 11),
             filled: true,
-            fillColor: Colors.grey.shade200,
-            helperText: 'Otomatis: (Stok Lama + Masuk - Keluar)',
-            helperStyle: const TextStyle(color: Colors.blue),
+            fillColor: Colors.blue.shade50,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.blue.shade200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.blue.shade200),
+            ),
           ),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: Colors.blue.shade900,
+          ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         TextField(
           controller: _catatanAtkCtrl,
           maxLines: 2,
-          decoration: const InputDecoration(
-            labelText: 'Catatan',
-            hintText: 'Cth: Pengadaan rutin bulanan / Diambil tim A',
-            border: OutlineInputBorder(),
+          decoration: _inputDecor(
+            'Catatan',
+            hint: 'Cth: Pengadaan rutin bulanan',
           ),
         ),
       ],
@@ -635,16 +736,88 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'EDIT DATA PERALATAN K3 (APD)',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
         TextField(
           controller: _peralatanApdCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Peralatan',
-            border: OutlineInputBorder(),
+          decoration: _inputDecor('Nama Peralatan'),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'Data Transaksi / Pergerakan',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0F3460),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _masukApdCtrl,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => _hitungTotalStokApd(),
+                decoration: _inputDecor('Masuk (+)', hint: '0'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _keluarApdCtrl,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => _hitungTotalStokApd(),
+                decoration: _inputDecor('Keluar (-)', hint: '0'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _sisaJumlahApdCtrl,
+          readOnly: true,
+          decoration: InputDecoration(
+            labelText: 'Total Stok Saat Ini',
+            helperText: 'Otomatis: (Lama + Masuk - Keluar)',
+            helperStyle: TextStyle(color: Colors.blue.shade700, fontSize: 11),
+            filled: true,
+            fillColor: Colors.blue.shade50,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.blue.shade200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.blue.shade200),
+            ),
+          ),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: Colors.blue.shade900,
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _catatanApdCtrl,
+          maxLines: 2,
+          decoration: _inputDecor(
+            'Catatan Transaksi',
+            hint: 'Cth: Pengadaan baru / Rusak',
+          ),
+        ),
+        const SizedBox(height: 24),
+        const Divider(),
+        const SizedBox(height: 12),
+        const Text(
+          'Informasi Tambahan',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0F3460),
           ),
         ),
         const SizedBox(height: 12),
@@ -652,62 +825,18 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           children: [
             Expanded(
               child: TextField(
-                controller: _jumlahApdCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Jumlah',
-                  border: OutlineInputBorder(),
-                ),
+                controller: _masaPakaiApdCtrl,
+                decoration: _inputDecor('Masa Pakai'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: TextField(
-                controller: _masaPakaiApdCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Masa Pakai',
-                  border: OutlineInputBorder(),
-                ),
+                controller: _tglKadaluarsaApdCtrl,
+                decoration: _inputDecor('Tgl Kadaluarsa'),
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.amber.shade50,
-            border: Border.all(color: Colors.amber),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Catatan Perubahan Stok (Wajib diisi jika jumlah diubah):',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _keteranganUpdateApdCtrl,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  hintText: 'Cth: Dipinjam 4 untuk pelatihan',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _tglKadaluarsaApdCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Tanggal Kadaluarsa',
-            border: OutlineInputBorder(),
-          ),
         ),
         const SizedBox(height: 12),
         Row(
@@ -715,20 +844,14 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
             Expanded(
               child: TextField(
                 controller: _kondisiApdCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Kondisi',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: _inputDecor('Kondisi'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: TextField(
                 controller: _pembelianApdCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Pembelian',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: _inputDecor('Thn Pembelian'),
               ),
             ),
           ],
