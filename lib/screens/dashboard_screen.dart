@@ -444,24 +444,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               itemBuilder: (context, index) {
                 final item = _kategoriList[index];
 
-                // Sinkronisasi total item real-time untuk APAR dan P3K
-                if (item['nama'] == 'APAR' || item['nama'] == 'P3K') {
-                  return StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection(
-                          item['nama'] == 'P3K' ? 'Kotak P3K' : 'APAR',
-                        )
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      int totalRealTime = snapshot.hasData
-                          ? snapshot.data!.docs.length
-                          : 0;
-                      return _buildKategoriCard(context, item, totalRealTime);
-                    },
-                  );
+                // Menyesuaikan nama collection di Firebase (P3K menjadi Kotak P3K)
+                String namaKoleksi = item['nama'];
+                if (namaKoleksi == 'P3K') {
+                  namaKoleksi = 'Kotak P3K';
                 }
 
-                return _buildKategoriCard(context, item, item['total']);
+                // Sinkronisasi total item real-time untuk SEMUA kategori
+                return StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection(namaKoleksi)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    // Menghitung jumlah dokumen (item) secara real-time
+                    int totalRealTime = snapshot.hasData
+                        ? snapshot.data!.docs.length
+                        : 0;
+
+                    return _buildKategoriCard(context, item, totalRealTime);
+                  },
+                );
               },
             ),
           ),
