@@ -7,6 +7,7 @@ import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:universal_html/html.dart' as html;
+import 'daftar_barang_screen.dart'; // <--- IMPORT DAFTAR BARANG DI SINI
 
 class HistoryLaporanScreen extends StatefulWidget {
   const HistoryLaporanScreen({super.key});
@@ -173,6 +174,14 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                       return;
                     }
 
+                    // ====== LOGIKA ROUTING BARU UNTUK APD, ATK, AMENITIES ======
+                    if (selectedKategori == 'APD' ||
+                        selectedKategori == 'ATK' ||
+                        selectedKategori == 'Amenities') {
+                      _exportApdAtkAmenitiesDirect(selectedKategori);
+                      return;
+                    }
+
                     // 1. Filter awal berdasarkan Kategori & Waktu (KODINGAN LAMA - JANGAN DIHAPUS)
                     List<QueryDocumentSnapshot> filteredDocs = allDocs.where((
                       doc,
@@ -248,8 +257,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                         .values
                         .toList();
 
-                    // Khusus P3K, datanya tetap dieksport walau hasil riwayat di bulan tsb kosong
-                    // (karena rekap master), tapi untuk kategori lain butuh data riwayat.
                     if (finalUniqueDocs.isEmpty &&
                         selectedKategori != 'Kotak P3K') {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -284,6 +291,18 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
         );
       },
     );
+  }
+
+  // ==========================================
+  // FUNGSI MEMANGGIL EXCEL APD, ATK, AMENITIES
+  // ==========================================
+  Future<void> _exportApdAtkAmenitiesDirect(String kategori) async {
+    setState(() => _isExporting = true);
+    try {
+      await DaftarBarangScreen.unduhLaporanExcel(context, kategori);
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
   }
 
   // ==========================================
@@ -370,7 +389,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
 
       String tanggalUnduhStr = DateFormat('dd/MM/yyyy').format(DateTime.now());
 
-      // LOGIKA MEMBENTUK TEKS PERIODE BULAN & TAHUN
       List<String> namaBulan = [
         '',
         'JANUARI',
@@ -396,6 +414,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
       } else {
         periodeText = 'KESELURUHAN DATA';
       }
+
       if (kategori == 'Kotak P3K') {
         // --- SHEET 1: HASIL INSPEKSI ---
         Sheet sheet1 = excel['Hasil Inspeksi'];
@@ -414,7 +433,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
         );
         sheet1.cell(CellIndex.indexByString("A3")).cellStyle = titleStyle;
 
-        // --- TAMBAHAN TANGGAL UNDUH DI SHEET 1 ---
         sheet1.cell(CellIndex.indexByString("A4")).value = TextCellValue(
           'Tanggal Unduh',
         );
@@ -454,7 +472,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           'Keterangan',
         ];
 
-        // Pergeseran Baris Header (Dari rowIndex: 5 menjadi rowIndex: 6 karena ada tanggal unduh di baris 4)
         for (int i = 0; i < p3kHeaders.length; i++) {
           var cell = sheet1.cell(
             CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 6),
@@ -463,7 +480,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           cell.cellStyle = headerStyle;
         }
 
-        int rIdx = 7; // Mulai data dari baris ke-7
+        int rIdx = 7;
         int no = 1;
         List<String> list21Items = [
           'Kasa Steril',
@@ -521,6 +538,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
               ? '50 orang'
               : (tipe.contains('C') ? '100 orang' : '25 orang');
           String noP3k = spec['No P3K'] ?? '-';
+
           sheet1
               .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rIdx))
               .value = IntCellValue(
@@ -579,7 +597,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
             );
           }
 
-          // Memasukkan data Keterangan di kolom paling akhir
           String ket =
               mData['keterangan']?.toString() ??
               mData['catatan']?.toString() ??
@@ -611,6 +628,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
         sheet2.cell(CellIndex.indexByString("B2")).value = TextCellValue(
           ': $tanggalUnduhStr',
         );
+
         List<String> catHeaders = [
           'No',
           'Nama Kotak / Lokasi',
@@ -621,7 +639,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           'Tanggal & Waktu',
         ];
 
-        // Pergeseran Baris Header Sheet 2 (Dari rowIndex: 3 menjadi rowIndex: 4)
         for (int i = 0; i < catHeaders.length; i++) {
           sheet2
               .cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 4))
@@ -638,15 +655,12 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           QuerySnapshot usageSnap = await FirebaseFirestore.instance
               .collection('buku_catatan_p3k')
               .get();
-          int cRow = 5; // Mulai baris data dari baris ke-5
+          int cRow = 5;
           int cNo = 1;
           for (var uDoc in usageSnap.docs) {
             var uData = uDoc.data() as Map<String, dynamic>;
 
-            // PERBAIKAN TANGGAL & WAKTU YANG SUPER ROBUST
             String tglStr = '-';
-
-            // 1. Coba cari di field-field yang umum
             var rawTgl =
                 uData['tanggal'] ??
                 uData['waktu'] ??
@@ -657,7 +671,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 uData['timestamp'] ??
                 uData['tgl'];
 
-            // 2. Jika MASIH KOSONG, cari field apapun di dokumen itu yang bertipe Timestamp (Otomatis)
             if (rawTgl == null) {
               for (var value in uData.values) {
                 if (value is Timestamp) {
@@ -667,14 +680,12 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
               }
             }
 
-            // 3. Format nilai tanggalnya menjadi text
             if (rawTgl != null) {
               if (rawTgl is Timestamp) {
                 tglStr = DateFormat('dd/MM/yyyy HH:mm').format(rawTgl.toDate());
               } else if (rawTgl is String) {
                 tglStr = rawTgl;
               } else if (rawTgl is int) {
-                // Berjaga-jaga jika formatnya angka milliseconds
                 tglStr = DateFormat(
                   'dd/MM/yyyy HH:mm',
                 ).format(DateTime.fromMillisecondsSinceEpoch(rawTgl));
@@ -748,13 +759,13 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
         sheet3.cell(CellIndex.indexByString("B2")).value = TextCellValue(
           ': $tanggalUnduhStr',
         );
+
         List<String> rekHeaders = [
           'Peringkat',
           'Nama Alat / Item P3K',
           'Total Penggunaan (Bulan Ini)',
         ];
 
-        // Pergeseran Baris Header Sheet 3 (Dari rowIndex: 3 menjadi rowIndex: 4)
         for (int i = 0; i < rekHeaders.length; i++) {
           sheet3
               .cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 4))
@@ -822,12 +833,10 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           'PT. PLN (PERSERO) UPDL PANDAAN',
         );
         sheetObject.cell(CellIndex.indexByString("A2")).cellStyle = titleStyle;
-
         sheetObject.cell(CellIndex.indexByString("A3")).value = TextCellValue(
           periodeText,
         );
         sheetObject.cell(CellIndex.indexByString("A3")).cellStyle = titleStyle;
-
         sheetObject.cell(CellIndex.indexByString("A4")).value = TextCellValue(
           'Tanggal Unduh',
         );
@@ -946,12 +955,10 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           'PT. PLN (PERSERO) UPDL PANDAAN',
         );
         sheetObject.cell(CellIndex.indexByString("A2")).cellStyle = titleStyle;
-
         sheetObject.cell(CellIndex.indexByString("A3")).value = TextCellValue(
           periodeText,
         );
         sheetObject.cell(CellIndex.indexByString("A3")).cellStyle = titleStyle;
-
         sheetObject.cell(CellIndex.indexByString("A4")).value = TextCellValue(
           'Tanggal Unduh',
         );
@@ -1212,116 +1219,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           rowIndex++;
         }
       }
-      // ==========================================================
-      // KONDISI 4: KATEGORI LAINNYA (ATK, APD, Dll - KODINGAN LAMA)
-      // ==========================================================
-      else if (sheetObject != null) {
-        sheetObject.cell(CellIndex.indexByString("A1")).value = TextCellValue(
-          'LAPORAN INSPEKSI ${kategori.toUpperCase()}',
-        );
-        sheetObject.cell(CellIndex.indexByString("A1")).cellStyle = titleStyle;
-        sheetObject.cell(CellIndex.indexByString("A2")).value = TextCellValue(
-          'PT. PLN (PERSERO) UPDL PANDAAN',
-        );
-        sheetObject.cell(CellIndex.indexByString("A2")).cellStyle = titleStyle;
-
-        sheetObject.cell(CellIndex.indexByString("A3")).value = TextCellValue(
-          periodeText,
-        );
-        sheetObject.cell(CellIndex.indexByString("A3")).cellStyle = titleStyle;
-
-        sheetObject.cell(CellIndex.indexByString("A4")).value = TextCellValue(
-          'Tanggal Unduh',
-        );
-        sheetObject.cell(CellIndex.indexByString("B4")).value = TextCellValue(
-          ': $tanggalUnduhStr',
-        );
-
-        List<String> headers = [
-          'NO',
-          'TGL INSPEKSI',
-          'LOKASI / NAMA ALAT',
-          'NAMA PEMERIKSA',
-          'CATATAN',
-          'RINCIAN CHECKLIST',
-        ];
-        for (int i = 0; i < headers.length; i++) {
-          var cell = sheetObject.cell(
-            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 5),
-          );
-          cell.value = TextCellValue(headers[i]);
-          cell.cellStyle = headerStyle;
-        }
-
-        int rowIndex = 6;
-        int no = 1;
-        for (var doc in docs) {
-          var data = doc.data() as Map<String, dynamic>;
-
-          String tanggalStr = '-';
-          if (data['tanggal'] != null) {
-            DateTime tgl = (data['tanggal'] as Timestamp).toDate();
-            tanggalStr = DateFormat('dd/MM/yyyy HH:mm').format(tgl);
-          }
-
-          String checklistStr = '';
-          if (data['hasil_checklist'] != null) {
-            Map<String, dynamic> cl = Map<String, dynamic>.from(
-              data['hasil_checklist'],
-            );
-            cl.forEach((key, value) {
-              String valStr = value.toString();
-              if (value == true) valStr = 'Baik';
-              if (value == false) valStr = 'Rusak / Hilang';
-              checklistStr += '- $key: $valStr\n';
-            });
-          }
-
-          sheetObject
-              .cell(
-                CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex),
-              )
-              .value = IntCellValue(
-            no++,
-          );
-          sheetObject
-              .cell(
-                CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex),
-              )
-              .value = TextCellValue(
-            tanggalStr,
-          );
-          sheetObject
-              .cell(
-                CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex),
-              )
-              .value = TextCellValue(
-            data['nama_barang']?.toString() ?? '-',
-          );
-          sheetObject
-              .cell(
-                CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex),
-              )
-              .value = TextCellValue(
-            data['nama_pemeriksa']?.toString() ?? '-',
-          );
-          sheetObject
-              .cell(
-                CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex),
-              )
-              .value = TextCellValue(
-            data['catatan']?.toString() ?? '-',
-          );
-          sheetObject
-              .cell(
-                CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex),
-              )
-              .value = TextCellValue(
-            checklistStr.trim(),
-          );
-          rowIndex++;
-        }
-      }
 
       if (excel.tables.containsKey('TempSheet')) {
         excel.delete('TempSheet');
@@ -1530,9 +1427,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
               ? snapshot.data!.docs
               : [];
 
-          // ==========================================================
-          // LOGIKA BARU: KELOMPOKKAN PER KATEGORI & AMBIL 5 TERBARU
-          // ==========================================================
           Map<String, List<QueryDocumentSnapshot>> groupedDocs = {};
           for (var doc in allDocs) {
             var data = doc.data() as Map<String, dynamic>;
@@ -1542,8 +1436,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
               groupedDocs[kategori] = [];
             }
 
-            // Karena allDocs sudah otomatis urut tanggal dari Firebase,
-            // kita cukup limit 5 data yang masuk ke dalam list.
             if (groupedDocs[kategori]!.length < 5) {
               groupedDocs[kategori]!.add(doc);
             }
@@ -1551,7 +1443,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
 
           return Column(
             children: [
-              // 1. BAGIAN ATAS: LISTVIEW RIWAYAT PER KATEGORI
               Expanded(
                 child: groupedDocs.isEmpty
                     ? const Center(
@@ -1579,7 +1470,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // --- JUDUL KATEGORI ---
                               Padding(
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 8,
@@ -1608,8 +1498,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                                   ],
                                 ),
                               ),
-
-                              // --- DAFTAR 5 ITEM ---
                               ...docs.map((doc) {
                                 var data = doc.data() as Map<String, dynamic>;
                                 String tanggalStr = '-';
@@ -1674,17 +1562,13 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                                   ),
                                 );
                               }).toList(),
-
-                              const SizedBox(
-                                height: 15,
-                              ), // Jarak pemisah antar kategori
+                              const SizedBox(height: 15),
                             ],
                           );
                         }).toList(),
                       ),
               ),
 
-              // 2. BAGIAN BAWAH: TOMBOL DOWNLOAD EXCEL
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -1697,7 +1581,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                       color: Colors.grey.withOpacity(0.1),
                       spreadRadius: 1,
                       blurRadius: 5,
-                      offset: const Offset(0, -3), // Efek bayangan ke atas
+                      offset: const Offset(0, -3),
                     ),
                   ],
                 ),

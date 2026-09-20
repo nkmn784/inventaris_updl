@@ -113,6 +113,7 @@ class _TambahPeneranganScreenState extends State<TambahPeneranganScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Harap ambil titik koordinat (GPS) terlebih dahulu!'),
+          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -154,9 +155,12 @@ class _TambahPeneranganScreenState extends State<TambahPeneranganScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal menyimpan: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menyimpan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -167,9 +171,10 @@ class _TambahPeneranganScreenState extends State<TambahPeneranganScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
           'Berhasil & Wajib Dilakukan!',
-          style: TextStyle(color: Colors.red),
+          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -179,7 +184,7 @@ class _TambahPeneranganScreenState extends State<TambahPeneranganScreen> {
             const SizedBox(height: 12),
             const Text(
               'SEBELUM MEMASANG LAMPU, TULIS KODE INI PADA BODY LAMPU MENGGUNAKAN SPIDOL PERMANEN:',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
             const SizedBox(height: 16),
             Center(
@@ -190,16 +195,16 @@ class _TambahPeneranganScreenState extends State<TambahPeneranganScreen> {
                 ),
                 decoration: BoxDecoration(
                   color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blueAccent, width: 2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.shade700, width: 2),
                 ),
                 child: Text(
                   kodeUnik,
-                  style: const TextStyle(
-                    fontSize: 40,
+                  style: TextStyle(
+                    fontSize: 36,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 8.0,
-                    color: Colors.blueAccent,
+                    letterSpacing: 6.0,
+                    color: Colors.blue.shade900,
                   ),
                 ),
               ),
@@ -212,10 +217,18 @@ class _TambahPeneranganScreenState extends State<TambahPeneranganScreen> {
               Navigator.pop(ctx); // Tutup dialog
               Navigator.pop(context); // Kembali ke halaman sebelumnya
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
             child: const Text(
               'SAYA SUDAH MENULISNYA',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -226,7 +239,16 @@ class _TambahPeneranganScreenState extends State<TambahPeneranganScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Tambah Titik Penerangan')),
+      backgroundColor: Colors.blue.shade50,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.blue.shade900,
+        foregroundColor: Colors.white,
+        title: const Text(
+          'Tambah Titik Penerangan',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -234,160 +256,294 @@ class _TambahPeneranganScreenState extends State<TambahPeneranganScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '1. Lokasi Pemasangan',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _gedungCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Gedung / Ruangan (Misal: Gedung A Lt. 1)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.business),
-                ),
-                validator: (val) =>
-                    val == null || val.isEmpty ? 'Wajib diisi' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _lokasiSpesifikCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Lokasi Spesifik (Misal: Plafon Lorong Toilet)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.my_location),
-                ),
-                validator: (val) =>
-                    val == null || val.isEmpty ? 'Wajib diisi' : null,
-              ),
-              const SizedBox(height: 16),
-
-              // Bagian Koordinat GPS
+              // Card 1: Lokasi Pemasangan
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  border: Border.all(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.shade100.withOpacity(0.5),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    const Text(
+                      '1. Lokasi Pemasangan',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Color(0xFF0F3460),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _gedungCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Gedung / Ruangan (Misal: Gedung A Lt. 1)',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.business),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 14,
+                        ),
+                      ),
+                      validator: (val) =>
+                          val == null || val.isEmpty ? 'Wajib diisi' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _lokasiSpesifikCtrl,
+                      decoration: InputDecoration(
+                        labelText:
+                            'Lokasi Spesifik (Misal: Plafon Lorong Toilet)',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.my_location),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 14,
+                        ),
+                      ),
+                      validator: (val) =>
+                          val == null || val.isEmpty ? 'Wajib diisi' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Bagian Koordinat GPS
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
                         children: [
-                          const Text(
-                            'Titik Koordinat (GPS):',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _latitude != null
-                                ? 'Lat: $_latitude\nLon: $_longitude'
-                                : 'Koordinat belum diambil',
-                            style: TextStyle(
-                              color: _latitude != null
-                                  ? Colors.green.shade700
-                                  : Colors.red,
-                              fontWeight: FontWeight.w500,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Titik Koordinat (GPS):',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _latitude != null
+                                      ? 'Lat: $_latitude\nLon: $_longitude'
+                                      : 'Koordinat belum diambil',
+                                  style: TextStyle(
+                                    color: _latitude != null
+                                        ? Colors.green.shade700
+                                        : Colors.red.shade700,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade700,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            icon: _isGettingLocation
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.gps_fixed, size: 18),
+                            label: const Text('Ambil GPS'),
+                            onPressed: _isGettingLocation
+                                ? null
+                                : _getCurrentLocation,
                           ),
                         ],
                       ),
-                    ),
-                    ElevatedButton.icon(
-                      icon: _isGettingLocation
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.gps_fixed),
-                      label: const Text('Ambil GPS'),
-                      onPressed: _isGettingLocation
-                          ? null
-                          : _getCurrentLocation,
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 24),
-              const Text(
-                '2. Spesifikasi Lampu',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _merkCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Merk Lampu (Misal: Philips)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lightbulb_outline),
-                ),
-                validator: (val) =>
-                    val == null || val.isEmpty ? 'Wajib diisi' : null,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: DropdownButtonFormField<String>(
-                      value: _jenisLampuTerpilih,
-                      decoration: const InputDecoration(
-                        labelText: 'Jenis Lampu',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _listJenisLampu
-                          .map(
-                            (e) => DropdownMenuItem(value: e, child: Text(e)),
-                          )
-                          .toList(),
-                      onChanged: (val) =>
-                          setState(() => _jenisLampuTerpilih = val!),
+              const SizedBox(height: 20),
+
+              // Card 2: Spesifikasi Lampu
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.shade100.withOpacity(0.5),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 1,
-                    child: TextFormField(
-                      controller: _wattCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Watt',
-                        border: OutlineInputBorder(),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '2. Spesifikasi Lampu',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Color(0xFF0F3460),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _merkCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Merk Lampu (Misal: Philips)',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.lightbulb_outline),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 14,
+                        ),
                       ),
                       validator: (val) =>
-                          val == null || val.isEmpty ? 'Isi' : null,
+                          val == null || val.isEmpty ? 'Wajib diisi' : null,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: DropdownButtonFormField<String>(
+                            value: _jenisLampuTerpilih,
+                            decoration: InputDecoration(
+                              labelText: 'Jenis Lampu',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
+                            ),
+                            items: _listJenisLampu
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e,
+                                    child: Text(e),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) =>
+                                setState(() => _jenisLampuTerpilih = val!),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 1,
+                          child: TextFormField(
+                            controller: _wattCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: 'Watt',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
+                            ),
+                            validator: (val) =>
+                                val == null || val.isEmpty ? 'Isi' : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
 
-              const SizedBox(height: 24),
-              const Text(
-                '3. Informasi Pemasangan',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _petugasCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Nama Petugas Pemasang',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
+              const SizedBox(height: 20),
+
+              // Card 3: Informasi Pemasangan
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.shade100.withOpacity(0.5),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                validator: (val) =>
-                    val == null || val.isEmpty ? 'Wajib diisi' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _catatanCtrl,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Catatan Tambahan (Opsional)',
-                  border: OutlineInputBorder(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '3. Informasi Pemasangan',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Color(0xFF0F3460),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _petugasCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Nama Petugas Pemasang',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.person),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 14,
+                        ),
+                      ),
+                      validator: (val) =>
+                          val == null || val.isEmpty ? 'Wajib diisi' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _catatanCtrl,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        labelText: 'Catatan Tambahan (Opsional)',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 14,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
@@ -398,7 +554,10 @@ class _TambahPeneranganScreenState extends State<TambahPeneranganScreen> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _simpanData,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: Colors.blue.shade700,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)

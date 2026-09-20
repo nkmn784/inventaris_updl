@@ -12,15 +12,10 @@ class DaftarBarangScreen extends StatefulWidget {
 
   const DaftarBarangScreen({super.key, required this.namaKategori});
 
-  @override
-  State<DaftarBarangScreen> createState() => _DaftarBarangScreenState();
-}
-
-class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
-  String _searchQuery = '';
-  bool _isExporting = false;
-
-  String _namaBulan(int bulan) {
+  // ==============================================================
+  // FUNGSI STATIC EXPORT EXCEL (Dipanggil dari History Laporan)
+  // ==============================================================
+  static String _namaBulan(int bulan) {
     const listBulan = [
       'Januari',
       'Februari',
@@ -38,32 +33,10 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
     return listBulan[bulan - 1];
   }
 
-  String _formatTanggalEdit(Map<String, dynamic> data) {
-    dynamic val =
-        data['updated_at'] ??
-        data['tanggal_edit'] ??
-        data['terakhir_diubah'] ??
-        data['updatedAt'];
-
-    if (val == null) return '';
-
-    if (val is Timestamp) {
-      DateTime dt = val.toDate();
-      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
-    } else if (val is String && val.trim().isNotEmpty) {
-      if (val.contains('T')) {
-        return val.split('T')[0];
-      }
-      return val;
-    }
-    return '';
-  }
-
-  Future<void> _unduhLaporanExcel() async {
-    if (_isExporting) return;
-
-    setState(() => _isExporting = true);
-
+  static Future<void> unduhLaporanExcel(
+    BuildContext context,
+    String namaKategori,
+  ) async {
     try {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -79,7 +52,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                 ),
               ),
               const SizedBox(width: 16),
-              Text('Menyiapkan laporan ${widget.namaKategori}...'),
+              Text('Menyiapkan laporan $namaKategori...'),
             ],
           ),
           duration: const Duration(seconds: 3),
@@ -87,7 +60,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
       );
 
       final snapshot = await FirebaseFirestore.instance
-          .collection(widget.namaKategori)
+          .collection(namaKategori)
           .get();
 
       if (snapshot.docs.isEmpty) {
@@ -95,18 +68,46 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Tidak ada data untuk diekspor.')),
         );
-        setState(() => _isExporting = false);
         return;
       }
 
       var excel = exc.Excel.createExcel();
-      String sheetName = widget.namaKategori;
+      String sheetName = namaKategori;
       String defaultSheet = excel.getDefaultSheet() ?? 'Sheet1';
-      String kategoriUpper = widget.namaKategori.toUpperCase();
+      String kategoriUpper = namaKategori.toUpperCase();
 
+      // ==============================================================
+      // GAYA TABEL (WARNA ABU-ABU & GARIS PEMBATAS)
+      // ==============================================================
       exc.CellStyle headerStyle = exc.CellStyle(
         bold: true,
         horizontalAlign: exc.HorizontalAlign.Center,
+        verticalAlign: exc.VerticalAlign.Center,
+        backgroundColorHex: exc.ExcelColor.fromHexString(
+          '#D3D3D3',
+        ), // Warna Abu-abu
+        leftBorder: exc.Border(borderStyle: exc.BorderStyle.Thin),
+        rightBorder: exc.Border(borderStyle: exc.BorderStyle.Thin),
+        topBorder: exc.Border(borderStyle: exc.BorderStyle.Thin),
+        bottomBorder: exc.Border(borderStyle: exc.BorderStyle.Thin),
+      );
+
+      exc.CellStyle dataCenterStyle = exc.CellStyle(
+        horizontalAlign: exc.HorizontalAlign.Center,
+        verticalAlign: exc.VerticalAlign.Center,
+        leftBorder: exc.Border(borderStyle: exc.BorderStyle.Thin),
+        rightBorder: exc.Border(borderStyle: exc.BorderStyle.Thin),
+        topBorder: exc.Border(borderStyle: exc.BorderStyle.Thin),
+        bottomBorder: exc.Border(borderStyle: exc.BorderStyle.Thin),
+      );
+
+      exc.CellStyle dataLeftStyle = exc.CellStyle(
+        horizontalAlign: exc.HorizontalAlign.Left,
+        verticalAlign: exc.VerticalAlign.Center,
+        leftBorder: exc.Border(borderStyle: exc.BorderStyle.Thin),
+        rightBorder: exc.Border(borderStyle: exc.BorderStyle.Thin),
+        topBorder: exc.Border(borderStyle: exc.BorderStyle.Thin),
+        bottomBorder: exc.Border(borderStyle: exc.BorderStyle.Thin),
       );
 
       DateTime now = DateTime.now();
@@ -124,8 +125,12 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
           exc.CellIndex.indexByString('G1'),
           customValue: exc.TextCellValue('INVENTARIS PERALATAN K3 (APD)'),
         );
-        sheetObject.cell(exc.CellIndex.indexByString('A1')).cellStyle =
-            headerStyle;
+        sheetObject
+            .cell(exc.CellIndex.indexByString('A1'))
+            .cellStyle = exc.CellStyle(
+          bold: true,
+          horizontalAlign: exc.HorizontalAlign.Center,
+        );
 
         List<String> headersAPD = [
           'No.',
@@ -178,15 +183,18 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
               ),
             );
             cell.value = exc.TextCellValue(rowData[i]);
-            if (i != 1)
-              cell.cellStyle = exc.CellStyle(
-                horizontalAlign: exc.HorizontalAlign.Center,
-              );
+
+            if (i == 1) {
+              cell.cellStyle = dataLeftStyle;
+            } else {
+              cell.cellStyle = dataCenterStyle;
+            }
           }
           rowIndex++;
           nomorUrut++;
         }
 
+        // Tanda Tangan
         rowIndex += 2;
         String tanggalTTD = '${now.day} ${_namaBulan(now.month)} ${now.year}';
         sheetObject.merge(
@@ -237,10 +245,11 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
             )
             .cellStyle = exc.CellStyle(
           horizontalAlign: exc.HorizontalAlign.Center,
+          bold: true,
         );
 
         // ==============================================================
-        // EXCEL ATK & AMENITIES (LAYOUT SESUAI CONTOH FOTO ASLI)
+        // EXCEL ATK & AMENITIES (SATU SEL / MERGE RAPI)
         // ==============================================================
       } else if (kategoriUpper.contains('ATK') ||
           kategoriUpper.contains('AMENITIES')) {
@@ -278,73 +287,55 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
 
           exc.Sheet sheetObject = excel[finalSheetName];
 
-          // --- KOP SURAT ---
-          exc.CellStyle boldStyle = exc.CellStyle(bold: true);
+          exc.CellStyle boldTitleStyle = exc.CellStyle(bold: true);
+
+          // Kop Surat
           sheetObject.cell(exc.CellIndex.indexByString('A1')).value =
               exc.TextCellValue('PT PLN (PERSERO)');
           sheetObject.cell(exc.CellIndex.indexByString('A1')).cellStyle =
-              boldStyle;
-
+              boldTitleStyle;
           sheetObject.cell(exc.CellIndex.indexByString('A2')).value =
               exc.TextCellValue('MONITORING STOK BARANG');
           sheetObject.cell(exc.CellIndex.indexByString('A2')).cellStyle =
-              boldStyle;
+              boldTitleStyle;
 
-          sheetObject.cell(exc.CellIndex.indexByString('A5')).value =
-              exc.TextCellValue('No. Kartu :');
-          sheetObject.cell(exc.CellIndex.indexByString('B5')).value =
-              exc.TextCellValue('Nama Barang :');
-          sheetObject.cell(exc.CellIndex.indexByString('F5')).value =
-              exc.TextCellValue('Satuan :');
-
-          // Merge Baris Nama Barang (B6 sampai E6)
+          // Merge A4 sampai C4 untuk Nama Barang (Menjadi satu kesatuan sel)
           sheetObject.merge(
-            exc.CellIndex.indexByString('B6'),
-            exc.CellIndex.indexByString('E6'),
-            customValue: exc.TextCellValue(rawName),
+            exc.CellIndex.indexByString('A4'),
+            exc.CellIndex.indexByString('C4'),
           );
-          sheetObject.cell(exc.CellIndex.indexByString('B6')).cellStyle =
-              boldStyle;
+          sheetObject.cell(exc.CellIndex.indexByString('A4')).value =
+              exc.TextCellValue('Nama Barang : $rawName');
+          sheetObject.cell(exc.CellIndex.indexByString('A4')).cellStyle =
+              boldTitleStyle;
 
+          // Merge D4 sampai E4 untuk Satuan (Menjadi satu kesatuan sel)
           String satuan = data['satuan'] ?? '-';
-          sheetObject.cell(exc.CellIndex.indexByString('F6')).value =
-              exc.TextCellValue(satuan);
-          sheetObject.cell(exc.CellIndex.indexByString('F6')).cellStyle =
-              boldStyle;
-
-          sheetObject
-              .cell(exc.CellIndex.indexByString('A7'))
-              .value = exc.TextCellValue(
-            '........................................................................................................................',
+          sheetObject.merge(
+            exc.CellIndex.indexByString('D4'),
+            exc.CellIndex.indexByString('E4'),
           );
+          sheetObject.cell(exc.CellIndex.indexByString('D4')).value =
+              exc.TextCellValue('Satuan : $satuan');
+          sheetObject.cell(exc.CellIndex.indexByString('D4')).cellStyle =
+              boldTitleStyle;
 
-          // --- HEADER TABEL RIWAYAT (Tanpa Rak & Peti) ---
-          exc.CellStyle tableHeaderStyle = exc.CellStyle(
-            bold: true,
-            horizontalAlign: exc.HorizontalAlign.Center,
-            verticalAlign: exc.VerticalAlign.Center,
-          );
-
-          sheetObject.cell(exc.CellIndex.indexByString('A9')).value =
-              exc.TextCellValue('Tgl.');
-          sheetObject.cell(exc.CellIndex.indexByString('B9')).value =
-              exc.TextCellValue('No. Bon');
-          sheetObject.cell(exc.CellIndex.indexByString('C9')).value =
-              exc.TextCellValue('Masuk');
-          sheetObject.cell(exc.CellIndex.indexByString('D9')).value =
-              exc.TextCellValue('Keluar');
-          sheetObject.cell(exc.CellIndex.indexByString('E9')).value =
-              exc.TextCellValue('Sisa Persediaan');
-          sheetObject.cell(exc.CellIndex.indexByString('F9')).value =
-              exc.TextCellValue('Catatan');
-
-          List<String> headerCells = ['A9', 'B9', 'C9', 'D9', 'E9', 'F9'];
-          for (String cell in headerCells) {
-            sheetObject.cell(exc.CellIndex.indexByString(cell)).cellStyle =
-                tableHeaderStyle;
+          // Table Headers (5 Kolom Rapat)
+          List<String> atkHeaders = [
+            'Tgl.',
+            'Masuk',
+            'Keluar',
+            'Sisa Persediaan',
+            'Catatan',
+          ];
+          for (int i = 0; i < atkHeaders.length; i++) {
+            var cell = sheetObject.cell(
+              exc.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 6),
+            );
+            cell.value = exc.TextCellValue(atkHeaders[i]);
+            cell.cellStyle = headerStyle;
           }
 
-          // --- ISI DATA RIWAYAT STOK ---
           List<dynamic> riwayat = [];
           if (kategoriUpper.contains('ATK')) {
             riwayat = data['riwayat_stok_atk'] ?? [];
@@ -352,17 +343,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
             riwayat = data['riwayat_stok_amenities'] ?? [];
           }
 
-          int rIdx = 9;
-
-          exc.CellStyle dataCenter = exc.CellStyle(
-            horizontalAlign: exc.HorizontalAlign.Center,
-            verticalAlign: exc.VerticalAlign.Center,
-          );
-
-          exc.CellStyle dataLeft = exc.CellStyle(
-            horizontalAlign: exc.HorizontalAlign.Left,
-            verticalAlign: exc.VerticalAlign.Center,
-          );
+          int rIdx = 7;
 
           String formatTgl(String? isoDate) {
             if (isoDate == null || isoDate.isEmpty) return '-';
@@ -393,22 +374,12 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                   ),
                 )
                 .value = exc.TextCellValue(
-              '-',
-            );
-            sheetObject
-                .cell(
-                  exc.CellIndex.indexByColumnRow(
-                    columnIndex: 2,
-                    rowIndex: rIdx,
-                  ),
-                )
-                .value = exc.TextCellValue(
               data['masuk']?.toString() ?? '-',
             );
             sheetObject
                 .cell(
                   exc.CellIndex.indexByColumnRow(
-                    columnIndex: 3,
+                    columnIndex: 2,
                     rowIndex: rIdx,
                   ),
                 )
@@ -423,7 +394,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
             sheetObject
                 .cell(
                   exc.CellIndex.indexByColumnRow(
-                    columnIndex: 4,
+                    columnIndex: 3,
                     rowIndex: rIdx,
                   ),
                 )
@@ -433,7 +404,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
             sheetObject
                 .cell(
                   exc.CellIndex.indexByColumnRow(
-                    columnIndex: 5,
+                    columnIndex: 4,
                     rowIndex: rIdx,
                   ),
                 )
@@ -441,7 +412,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
               data['keterangan'] ?? 'Stok Awal',
             );
 
-            for (int c = 0; c <= 5; c++) {
+            for (int c = 0; c <= 4; c++) {
               sheetObject
                   .cell(
                     exc.CellIndex.indexByColumnRow(
@@ -449,9 +420,9 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                       rowIndex: rIdx,
                     ),
                   )
-                  .cellStyle = (c == 5)
-                  ? dataLeft
-                  : dataCenter;
+                  .cellStyle = (c == 4)
+                  ? dataLeftStyle
+                  : dataCenterStyle;
             }
             rIdx++;
           } else {
@@ -488,7 +459,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                     ),
                   )
                   .value = exc.TextCellValue(
-                '-',
+                masuk,
               );
               sheetObject
                   .cell(
@@ -498,7 +469,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                     ),
                   )
                   .value = exc.TextCellValue(
-                masuk,
+                keluar,
               );
               sheetObject
                   .cell(
@@ -508,7 +479,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                     ),
                   )
                   .value = exc.TextCellValue(
-                keluar,
+                sisa,
               );
               sheetObject
                   .cell(
@@ -518,20 +489,10 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                     ),
                   )
                   .value = exc.TextCellValue(
-                sisa,
-              );
-              sheetObject
-                  .cell(
-                    exc.CellIndex.indexByColumnRow(
-                      columnIndex: 5,
-                      rowIndex: rIdx,
-                    ),
-                  )
-                  .value = exc.TextCellValue(
                 catatan,
               );
 
-              for (int c = 0; c <= 5; c++) {
+              for (int c = 0; c <= 4; c++) {
                 sheetObject
                     .cell(
                       exc.CellIndex.indexByColumnRow(
@@ -539,9 +500,9 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                         rowIndex: rIdx,
                       ),
                     )
-                    .cellStyle = (c == 5)
-                    ? dataLeft
-                    : dataCenter;
+                    .cellStyle = (c == 4)
+                    ? dataLeftStyle
+                    : dataCenterStyle;
               }
               rIdx++;
             }
@@ -555,13 +516,20 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
         excel.rename(defaultSheet, sheetName);
         exc.Sheet sheetObject = excel[sheetName];
 
+        sheetObject.merge(
+          exc.CellIndex.indexByString('A1'),
+          exc.CellIndex.indexByString('F1'),
+          customValue: exc.TextCellValue(
+            'LAPORAN DATA ${namaKategori.toUpperCase()}',
+          ),
+        );
         sheetObject
             .cell(exc.CellIndex.indexByString('A1'))
-            .value = exc.TextCellValue(
-          'LAPORAN DATA ${widget.namaKategori.toUpperCase()}',
+            .cellStyle = exc.CellStyle(
+          bold: true,
+          horizontalAlign: exc.HorizontalAlign.Center,
         );
-        sheetObject.cell(exc.CellIndex.indexByString('A1')).cellStyle =
-            headerStyle;
+
         sheetObject.cell(exc.CellIndex.indexByString('A2')).value =
             exc.TextCellValue('BULAN / TAHUN : $bulanTahun');
 
@@ -600,16 +568,18 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
           ];
 
           for (int i = 0; i < rowData.length; i++) {
-            sheetObject
-                .cell(
-                  exc.CellIndex.indexByColumnRow(
-                    columnIndex: i,
-                    rowIndex: rowIndex,
-                  ),
-                )
-                .value = exc.TextCellValue(
-              rowData[i],
+            var cell = sheetObject.cell(
+              exc.CellIndex.indexByColumnRow(
+                columnIndex: i,
+                rowIndex: rowIndex,
+              ),
             );
+            cell.value = exc.TextCellValue(rowData[i]);
+            if (i == 1 || i == 3) {
+              cell.cellStyle = dataLeftStyle;
+            } else {
+              cell.cellStyle = dataCenterStyle;
+            }
           }
           rowIndex++;
           nomorUrut++;
@@ -620,7 +590,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
       if (fileBytes == null) throw Exception("Gagal membuat file Excel");
 
       final String namaFile =
-          'Laporan_${widget.namaKategori}_${DateTime.now().millisecondsSinceEpoch}';
+          'Laporan_${namaKategori}_${DateTime.now().millisecondsSinceEpoch}';
 
       await FileSaver.instance.saveFile(
         name: '$namaFile.xlsx',
@@ -631,7 +601,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Laporan ${widget.namaKategori} berhasil diunduh!'),
+          content: Text('Laporan $namaKategori berhasil diunduh!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -643,9 +613,34 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
           backgroundColor: Colors.red,
         ),
       );
-    } finally {
-      if (mounted) setState(() => _isExporting = false);
     }
+  }
+
+  @override
+  State<DaftarBarangScreen> createState() => _DaftarBarangScreenState();
+}
+
+class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
+  String _searchQuery = '';
+
+  String _formatTanggalEdit(Map<String, dynamic> data) {
+    dynamic val =
+        data['updated_at'] ??
+        data['tanggal_edit'] ??
+        data['terakhir_diubah'] ??
+        data['updatedAt'];
+    if (val == null) return '';
+
+    if (val is Timestamp) {
+      DateTime dt = val.toDate();
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    } else if (val is String && val.trim().isNotEmpty) {
+      if (val.contains('T')) {
+        return val.split('T')[0];
+      }
+      return val;
+    }
+    return '';
   }
 
   @override
@@ -660,25 +655,6 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
           widget.namaKategori,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        actions: [
-          _isExporting
-              ? const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  ),
-                )
-              : IconButton(
-                  icon: const Icon(Icons.download_rounded, color: Colors.white),
-                  tooltip: 'Unduh Laporan Excel',
-                  onPressed: _unduhLaporanExcel,
-                ),
-        ],
       ),
       body: Column(
         children: [
