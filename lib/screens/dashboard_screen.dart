@@ -7,6 +7,10 @@ import 'daftar_penerangan_screen.dart';
 import 'p3k_screen.dart';
 import 'history_laporan_screen.dart';
 import 'login_screen.dart';
+import 'global_search_screen.dart';
+import 'detail_barang_screen.dart';
+import 'detail_penerangan_screen.dart';
+import '../models/penerangan_model.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -17,6 +21,192 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
+  final TextEditingController _searchController = TextEditingController();
+
+  // State untuk Filter Kategori (Default semuanya terpilih)
+  final Map<String, bool> _selectedCategories = {
+    'APAR': true,
+    'Kotak P3K': true,
+    'APD': true,
+    'ATK': true,
+    'Amenities': true,
+    'Penerangan': true,
+  };
+
+  // State untuk Live Search Dropdown
+  List<Map<String, dynamic>> _liveSearchResults = [];
+  bool _isSearching = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // Fungsi untuk menangani pencarian real-time (Live Search)
+  void _onSearchChanged() {
+    String query = _searchController.text.trim();
+    if (query.isEmpty) {
+      setState(() {
+        _liveSearchResults = [];
+        _isSearching = false;
+      });
+    } else {
+      setState(() => _isSearching = true);
+      _performLiveSearch(query);
+    }
+  }
+
+  // Mengambil data dari kategori yang dicentang saja
+  Future<void> _performLiveSearch(String query) async {
+    List<Map<String, dynamic>> results = [];
+    String lowerQuery = query.toLowerCase();
+    List<String> queryWords = lowerQuery.split(RegExp(r'\s+'));
+
+    // Ambil hanya kategori yang dicentang oleh user di pop-up filter
+    List<String> activeCollections = _selectedCategories.entries
+        .where((entry) => entry.value)
+        .map((entry) => entry.key)
+        .toList();
+
+    try {
+      for (String col in activeCollections) {
+        QuerySnapshot snap = await FirebaseFirestore.instance
+            .collection(col)
+            .get();
+
+        for (var doc in snap.docs) {
+          var data = doc.data() as Map<String, dynamic>;
+
+          String nama =
+              data['nama_barang'] ??
+              data['peralatan'] ??
+              data['nama_apd'] ??
+              data['nama_atk'] ??
+              data['nama_alat'] ??
+              data['nama'] ??
+              data['gedung_ruangan'] ??
+              '';
+
+          String lokasi = data['lokasi'] ?? data['lokasi_spesifik'] ?? '';
+          String kode = data['kode_unik'] ?? '';
+          String spesifikasiStr = '';
+          if (data['spesifikasi'] != null && data['spesifikasi'] is Map) {
+            spesifikasiStr = (data['spesifikasi'] as Map).values.join(' ');
+          }
+
+          String searchString = '$col $nama $lokasi $kode $spesifikasiStr'
+              .toLowerCase();
+
+          bool isMatch = true;
+          for (String word in queryWords) {
+            if (!searchString.contains(word)) {
+              isMatch = false;
+              break;
+            }
+          }
+
+          if (isMatch) {
+            data['kategori_sumber'] = col;
+            data['doc_id'] = doc.id;
+            results.add(data);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Live Search Error: $e');
+    }
+
+    if (mounted && _searchController.text.trim().isNotEmpty) {
+      setState(() {
+        _liveSearchResults = results;
+        _isSearching = false;
+      });
+    }
+  }
+
+  // --- POP-UP FILTER KATEGORI (IKON TUNE) ---
+  void _showFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text(
+                'Filter Kategori Pencarian',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: ListView(
+                  shrinkWrap: true,
+                  children: _selectedCategories.keys.map((String key) {
+                    return CheckboxListTile(
+                      title: Text(key),
+                      value: _selectedCategories[key],
+                      activeColor: Colors.blue.shade800,
+                      onChanged: (bool? value) {
+                        setDialogState(() {
+                          _selectedCategories[key] = value ?? true;
+                        });
+                        setState(() {});
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    setDialogState(() {
+                      _selectedCategories.updateAll((key, value) => true);
+                    });
+                    setState(() {});
+                  },
+                  child: const Text(
+                    'Pilih Semua',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade800,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Terapkan'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  IconData _getIconForCategory(String kategori) {
+    if (kategori == 'APAR') return Icons.fire_extinguisher;
+    if (kategori == 'Kotak P3K') return Icons.medical_services;
+    if (kategori == 'Penerangan') return Icons.lightbulb_outline;
+    if (kategori == 'APD') return Icons.health_and_safety;
+    if (kategori == 'ATK') return Icons.edit_note;
+    if (kategori == 'Amenities') return Icons.spa;
+    return Icons.inventory_2;
+  }
 
   final List<Map<String, dynamic>> _kategoriList = [
     {'nama': 'APAR', 'total': 150, 'icon': Icons.fire_extinguisher},
@@ -33,9 +223,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _onItemTapped(int index) {
     if (index == 0) {
-      setState(() {
-        _selectedIndex = index;
-      });
+      setState(() => _selectedIndex = index);
     } else if (index == 1) {
       Navigator.push(
         context,
@@ -48,12 +236,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // ==========================================
-  // NOTIFIKASI OTOMATIS BERDASARKAN STATUS ALAT
-  // ==========================================
-  // ==========================================
-  // NOTIFIKASI OTOMATIS BERDASARKAN STATUS ALAT
-  // ==========================================
+  // ====================================================================
+  // NOTIFIKASI STATUS MERAH SEMUA KATEGORI (APAR, P3K, APD, ATK, AMENITIES, PENERANGAN)
+  // ====================================================================
   void _tampilkanNotifikasi() {
     showModalBottomSheet(
       context: context,
@@ -84,178 +269,457 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Notifikasi & Peringatan Alat',
+              'Notifikasi & Peringatan (Status Merah)',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.blueAccent,
+                color: Colors.redAccent,
               ),
             ),
             const Divider(),
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('APAR')
-                    .snapshots(),
-                builder: (context, snapshotApar) {
-                  return StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('Kotak P3K')
-                        .snapshots(),
-                    builder: (context, snapshotP3k) {
-                      List<Widget> listPeringatan = [];
+              child: FutureBuilder<List<QuerySnapshot>>(
+                future: Future.wait([
+                  FirebaseFirestore.instance.collection('APAR').get(),
+                  FirebaseFirestore.instance.collection('Kotak P3K').get(),
+                  FirebaseFirestore.instance.collection('APD').get(),
+                  FirebaseFirestore.instance.collection('ATK').get(),
+                  FirebaseFirestore.instance.collection('Amenities').get(),
+                  FirebaseFirestore.instance.collection('Penerangan').get(),
+                ]),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (!snapshot.hasData || snapshot.hasError) {
+                    return const Center(
+                      child: Text(
+                        'Gagal memuat data notifikasi.',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    );
+                  }
 
-                      // 1. Cek Temuan Masalah di APAR (selain Tersedia)
-                      if (snapshotApar.hasData && snapshotApar.data != null) {
-                        for (var doc in snapshotApar.data!.docs) {
-                          // <-- DIPERBAIKI (menggunakan .data()!.docs)
-                          var data = doc.data() as Map<String, dynamic>;
-                          String status = data['keterangan'] ?? 'Tersedia';
-                          var spec = data['spesifikasi'] ?? {};
-                          String noApar = spec['No APAR'] ?? '-';
+                  var aparDocs = snapshot.data![0].docs;
+                  var p3kDocs = snapshot.data![1].docs;
+                  var apdDocs = snapshot.data![2].docs;
+                  var atkDocs = snapshot.data![3].docs;
+                  var amenitiesDocs = snapshot.data![4].docs;
+                  var peneranganDocs = snapshot.data![5].docs;
 
-                          if (status.toLowerCase() != 'tersedia') {
-                            // CONTOH UNTUK APAR (Terapkan gaya yang sama pada P3K di bawahnya)
-                            listPeringatan.add(
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.blue.shade100.withOpacity(
-                                        0.5,
-                                      ),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                  border: Border.all(
-                                    color: Colors.blue.shade50,
-                                  ),
-                                ),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: Colors.red.shade50,
-                                    child: const Icon(
-                                      Icons.warning_amber_rounded,
-                                      color: Colors.red,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    'APAR No. $noApar Bermasalah',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue.shade900,
-                                    ),
-                                  ),
-                                  subtitle: Text(
-                                    'Lokasi: ${data['lokasi'] ?? '-'} • Status: $status',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-                        }
-                      }
+                  List<Widget> listPeringatan = [];
 
-                      // 2. Cek Temuan Defisit / Butuh Isi Ulang di Kotak P3K
-                      if (snapshotP3k.hasData && snapshotP3k.data != null) {
-                        for (var doc in snapshotP3k.data!.docs) {
-                          // <-- DIPERBAIKI (menggunakan .data()!.docs)
-                          var data = doc.data() as Map<String, dynamic>;
-                          Map<String, dynamic> defisit =
-                              Map<String, dynamic>.from(
-                                data['defisit_p3k'] ?? {},
-                              );
-                          bool butuhIsiUlang = false;
-                          defisit.forEach((k, v) {
-                            if (v is int && v > 0) butuhIsiUlang = true;
-                          });
-
-                          if (butuhIsiUlang) {
-                            listPeringatan.add(
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.blue.shade100.withOpacity(
-                                        0.5,
-                                      ),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                  border: Border.all(
-                                    color: Colors.blue.shade50,
-                                  ),
-                                ),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: Colors
-                                        .orange
-                                        .shade50, // Disesuaikan agar lebih soft
-                                    child: const Icon(
-                                      Icons.medical_services,
-                                      color: Colors.orange,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    '${data['nama_barang'] ?? 'Kotak P3K'} Butuh Isi Ulang',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors
-                                          .blue
-                                          .shade900, // Disamakan dengan APAR
-                                    ),
-                                  ),
-                                  subtitle: Text(
-                                    'Lokasi: ${data['lokasi'] ?? '-'} • Item P3K ada yang kurang.',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                  trailing: const Text(
-                                    'Isi Ulang',
-                                    style: TextStyle(
-                                      color: Colors.orange,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-                        }
-                      }
-
-                      if (listPeringatan.isEmpty) {
-                        return const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.check_circle_outline,
-                                size: 50,
-                                color: Colors.green,
-                              ),
-                              SizedBox(height: 10),
-                              Text(
-                                'Semua alat aman dan tersedia!',
-                                style: TextStyle(color: Colors.grey),
+                  // 1. APAR (Status != Tersedia)
+                  for (var doc in aparDocs) {
+                    var data = doc.data() as Map<String, dynamic>;
+                    String status = data['keterangan'] ?? 'Tersedia';
+                    if (status.toLowerCase() != 'tersedia') {
+                      var spec = data['spesifikasi'] ?? {};
+                      String noApar = spec['No APAR'] ?? '-';
+                      String docId = doc.id;
+                      listPeringatan.add(
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.shade100.withOpacity(0.5),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
                               ),
                             ],
+                            border: Border.all(color: Colors.red.shade100),
                           ),
-                        );
-                      }
+                          child: ListTile(
+                            onTap: () {
+                              Navigator.pop(context); // Tutup bottom sheet
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => DetailAparScreen(
+                                    docId: docId,
+                                    dataApar: data,
+                                    isAdmin: true,
+                                  ),
+                                ),
+                              );
+                            },
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.redAccent,
+                              child: Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.white,
+                              ),
+                            ),
+                            title: Text(
+                              'APAR No. $noApar Bermasalah',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
+                            ),
+                            subtitle: Text(
+                              'Status: $status • Lokasi: ${data['lokasi'] ?? '-'}',
+                            ),
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  }
 
-                      return ListView(children: listPeringatan);
-                    },
-                  );
+                  // 2. Kotak P3K (Defisit > 0)
+                  for (var doc in p3kDocs) {
+                    var data = doc.data() as Map<String, dynamic>;
+                    Map<String, dynamic> defisit = Map<String, dynamic>.from(
+                      data['defisit_p3k'] ?? {},
+                    );
+                    bool butuhIsiUlang = false;
+                    defisit.forEach((k, v) {
+                      if (v is int && v > 0) butuhIsiUlang = true;
+                    });
+                    if (butuhIsiUlang) {
+                      String docId = doc.id;
+                      listPeringatan.add(
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.orange.shade100.withOpacity(0.5),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                            border: Border.all(color: Colors.orange.shade100),
+                          ),
+                          child: ListTile(
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => DetailP3kScreen(
+                                    docId: docId,
+                                    dataP3k: data,
+                                    isAdmin: true,
+                                  ),
+                                ),
+                              );
+                            },
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.orange,
+                              child: Icon(
+                                Icons.medical_services,
+                                color: Colors.white,
+                              ),
+                            ),
+                            title: Text(
+                              '${data['nama_barang'] ?? 'Kotak P3K'} Butuh Isi Ulang',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange,
+                              ),
+                            ),
+                            subtitle: Text(
+                              'Lokasi: ${data['lokasi'] ?? '-'} • Item P3K kurang.',
+                            ),
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  }
+
+                  // 3. APD (Kondisi != Baik)
+                  for (var doc in apdDocs) {
+                    var data = doc.data() as Map<String, dynamic>;
+                    String kondisi = data['kondisi'] ?? 'Baik';
+                    if (kondisi.toLowerCase() != 'baik') {
+                      String docId = doc.id;
+                      data['kategori'] = 'APD'; // Pastikan kategori terbaca
+                      listPeringatan.add(
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.shade100.withOpacity(0.5),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                            border: Border.all(color: Colors.red.shade100),
+                          ),
+                          child: ListTile(
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => DetailBarangScreen(
+                                    documentId: docId,
+                                    dataBarang: data,
+                                  ),
+                                ),
+                              );
+                            },
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.redAccent,
+                              child: Icon(Icons.security, color: Colors.white),
+                            ),
+                            title: Text(
+                              '${data['peralatan'] ?? 'APD'} Rusak / Bermasalah',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
+                            ),
+                            subtitle: Text('Kondisi: $kondisi'),
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  }
+
+                  // 4. ATK (Stok <= 0)
+                  for (var doc in atkDocs) {
+                    var data = doc.data() as Map<String, dynamic>;
+                    int stok =
+                        int.tryParse(
+                          (data['sisa_jumlah'] ??
+                                  data['jumlah'] ??
+                                  data['stok_sekarang'] ??
+                                  0)
+                              .toString(),
+                        ) ??
+                        0;
+                    if (stok <= 0) {
+                      String docId = doc.id;
+                      data['kategori'] = 'ATK'; // Pastikan kategori terbaca
+                      listPeringatan.add(
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.shade100.withOpacity(0.5),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                            border: Border.all(color: Colors.red.shade100),
+                          ),
+                          child: ListTile(
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => DetailBarangScreen(
+                                    documentId: docId,
+                                    dataBarang: data,
+                                  ),
+                                ),
+                              );
+                            },
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.redAccent,
+                              child: Icon(
+                                Icons.edit_document,
+                                color: Colors.white,
+                              ),
+                            ),
+                            title: Text(
+                              '${data['nama_barang'] ?? 'ATK'} Stok Habis',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
+                            ),
+                            subtitle: Text(
+                              'Sisa Stok: 0 ${data['satuan'] ?? 'Pcs'}',
+                            ),
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  }
+
+                  // 5. Amenities (Stok <= 0)
+                  for (var doc in amenitiesDocs) {
+                    var data = doc.data() as Map<String, dynamic>;
+                    int stok =
+                        int.tryParse(
+                          (data['sisa_jumlah'] ??
+                                  data['jumlah'] ??
+                                  data['stok_sekarang'] ??
+                                  0)
+                              .toString(),
+                        ) ??
+                        0;
+                    if (stok <= 0) {
+                      String docId = doc.id;
+                      data['kategori'] =
+                          'Amenities'; // Pastikan kategori terbaca
+                      listPeringatan.add(
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.shade100.withOpacity(0.5),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                            border: Border.all(color: Colors.red.shade100),
+                          ),
+                          child: ListTile(
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => DetailBarangScreen(
+                                    documentId: docId,
+                                    dataBarang: data,
+                                  ),
+                                ),
+                              );
+                            },
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.redAccent,
+                              child: Icon(Icons.spa, color: Colors.white),
+                            ),
+                            title: Text(
+                              '${data['nama_barang'] ?? 'Amenities'} Stok Habis',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
+                            ),
+                            subtitle: Text(
+                              'Sisa Stok: 0 ${data['satuan'] ?? 'Pcs'}',
+                            ),
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  }
+
+                  // 6. Penerangan (Status != Normal)
+                  for (var doc in peneranganDocs) {
+                    var data = doc.data() as Map<String, dynamic>;
+                    String status = data['status'] ?? 'Normal';
+                    if (status.toLowerCase() != 'normal') {
+                      String docId = doc.id;
+                      listPeringatan.add(
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.shade100.withOpacity(0.5),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                            border: Border.all(color: Colors.red.shade100),
+                          ),
+                          child: ListTile(
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => DetailPeneranganScreen(
+                                    item: PeneranganModel.fromFirestore(
+                                      data,
+                                      docId,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.redAccent,
+                              child: Icon(Icons.lightbulb, color: Colors.white),
+                            ),
+                            title: Text(
+                              'Lampu ${data['kode_unik'] ?? '-'} (${status.toUpperCase()})',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
+                            ),
+                            subtitle: Text(
+                              'Lokasi: ${data['gedung_ruangan'] ?? '-'} - ${data['lokasi_spesifik'] ?? '-'}',
+                            ),
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  }
+
+                  if (listPeringatan.isEmpty) {
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline,
+                            size: 60,
+                            color: Colors.green,
+                          ),
+                          SizedBox(height: 12),
+                          Text(
+                            'Tidak ada peringatan atau status merah!',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView(children: listPeringatan);
                 },
               ),
             ),
@@ -284,24 +748,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red.shade600,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
             ),
-            // Tambahkan 'async' di sini
             onPressed: () async {
-              // 1. Tutup popup dialog konfirmasi terlebih dahulu
               Navigator.pop(context);
-
-              // 2. Hapus sesi login dari Firebase
               await FirebaseAuth.instance.signOut();
-
-              // 3. Arahkan paksa kembali ke halaman Login
               if (context.mounted) {
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (context) => const LoginPage()),
-                  (Route<dynamic> route) => false,
+                  (route) => false,
                 );
               }
             },
@@ -366,13 +821,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // CONTAINER SEARCH BAR + LIVE SEARCH DROPDOWN
           Container(
-            padding: const EdgeInsets.only(
-              left: 16.0,
-              right: 16.0,
-              bottom: 30.0,
-              top: 16.0,
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [Colors.blue.shade900, Colors.blue.shade600],
@@ -391,31 +842,211 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search inventory...',
-                hintStyle: TextStyle(color: Colors.grey.shade500),
-                prefixIcon: Icon(Icons.search, color: Colors.blue.shade700),
-                suffixIcon: Container(
-                  margin: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.tune,
-                    color: Colors.blue.shade700,
-                    size: 20,
+            child: Column(
+              children: [
+                TextField(
+                  controller: _searchController,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (value) {
+                    if (value.trim().isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              GlobalSearchScreen(searchQuery: value.trim()),
+                        ),
+                      );
+                    }
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Cari alat, no unik, atau lokasi...',
+                    hintStyle: TextStyle(color: Colors.grey.shade500),
+                    prefixIcon: Icon(Icons.search, color: Colors.blue.shade700),
+                    suffixIcon: IconButton(
+                      icon: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.tune,
+                          color: Colors.blue.shade700,
+                          size: 20,
+                        ),
+                      ),
+                      tooltip: 'Filter Kategori',
+                      onPressed: _showFilterDialog,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              ),
+
+                // --- KOTAK DROPDOWN LIVE SEARCH ---
+                if (_searchController.text.trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: _isSearching
+                        ? const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          )
+                        : _liveSearchResults.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Center(
+                              child: Text(
+                                'Barang tidak ditemukan',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            padding: EdgeInsets.zero,
+                            itemCount: _liveSearchResults.length,
+                            itemBuilder: (context, index) {
+                              var item = _liveSearchResults[index];
+                              String kategori = item['kategori_sumber'];
+                              String docId = item['doc_id'];
+                              String nama =
+                                  item['nama_barang'] ??
+                                  item['peralatan'] ??
+                                  item['nama_apd'] ??
+                                  item['nama_atk'] ??
+                                  item['nama_alat'] ??
+                                  item['nama'] ??
+                                  item['gedung_ruangan'] ??
+                                  'Tanpa Nama';
+                              String lokasi =
+                                  item['lokasi'] ??
+                                  item['lokasi_spesifik'] ??
+                                  '-';
+                              String? imageUrl =
+                                  item['image_url'] ?? item['foto_url'];
+
+                              return ListTile(
+                                dense: true,
+                                leading: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child:
+                                      (imageUrl != null &&
+                                          imageUrl.toString().isNotEmpty)
+                                      ? Image.network(
+                                          imageUrl,
+                                          width: 36,
+                                          height: 36,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => Icon(
+                                            _getIconForCategory(kategori),
+                                            color: Colors.blue,
+                                          ),
+                                        )
+                                      : Icon(
+                                          _getIconForCategory(kategori),
+                                          color: Colors.blue,
+                                        ),
+                                ),
+                                title: Text(
+                                  nama,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'Kategori: $kategori • Lokasi: $lokasi',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                                trailing: const Icon(
+                                  Icons.arrow_forward_ios,
+                                  size: 12,
+                                ),
+                                onTap: () {
+                                  if (kategori == 'APAR') {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => DetailAparScreen(
+                                          docId: docId,
+                                          dataApar: item,
+                                          isAdmin: true,
+                                        ),
+                                      ),
+                                    );
+                                  } else if (kategori == 'Kotak P3K') {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => DetailP3kScreen(
+                                          docId: docId,
+                                          dataP3k: item,
+                                          isAdmin: true,
+                                        ),
+                                      ),
+                                    );
+                                  } else if (kategori == 'Penerangan') {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            DetailPeneranganScreen(
+                                              item:
+                                                  PeneranganModel.fromFirestore(
+                                                    item,
+                                                    docId,
+                                                  ),
+                                            ),
+                                      ),
+                                    );
+                                  } else {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            DetailBarangScreen(
+                                              documentId: docId,
+                                              dataBarang: item,
+                                            ),
+                                      ),
+                                    );
+                                  }
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ],
             ),
           ),
 
@@ -443,24 +1074,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
               itemCount: _kategoriList.length,
               itemBuilder: (context, index) {
                 final item = _kategoriList[index];
+                String namaKoleksi = item['nama'] == 'P3K'
+                    ? 'Kotak P3K'
+                    : item['nama'];
 
-                // Menyesuaikan nama collection di Firebase (P3K menjadi Kotak P3K)
-                String namaKoleksi = item['nama'];
-                if (namaKoleksi == 'P3K') {
-                  namaKoleksi = 'Kotak P3K';
-                }
-
-                // Sinkronisasi total item real-time untuk SEMUA kategori
                 return StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection(namaKoleksi)
                       .snapshots(),
                   builder: (context, snapshot) {
-                    // Menghitung jumlah dokumen (item) secara real-time
                     int totalRealTime = snapshot.hasData
                         ? snapshot.data!.docs.length
                         : 0;
-
                     return _buildKategoriCard(context, item, totalRealTime);
                   },
                 );
