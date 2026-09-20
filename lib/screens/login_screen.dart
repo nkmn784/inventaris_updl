@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dashboard_screen.dart';
 import 'public_catatan_screen.dart';
 
@@ -10,8 +11,61 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  // Variabel untuk mengatur apakah password disembunyikan atau tidak
   bool _obscurePassword = true;
+  bool _isLoading = false;
+
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  Future<void> _loginAdmin() async {
+    if (_emailController.text.trim().isEmpty ||
+        _passwordController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email dan Password harus diisi!')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Proses autentikasi ke Firebase
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      // Jika berhasil, StreamBuilder di main.dart akan otomatis memindahkan layar.
+      // Namun untuk memastikan jika sistem route nyangkut:
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      String errorMessage = 'Terjadi kesalahan.';
+      if (e.code == 'user-not-found' || e.code == 'invalid-email') {
+        errorMessage = 'Email tidak ditemukan / tidak valid.';
+      } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        errorMessage = 'Password salah.';
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,12 +149,13 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 30),
 
-                      // Field Username
                       TextField(
+                        controller: _emailController, // Pasang Controller
+                        keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
-                          labelText: 'Username',
+                          labelText: 'Email',
                           prefixIcon: Icon(
-                            Icons.person,
+                            Icons.email,
                             color: Colors.blue.shade800,
                           ),
                           border: OutlineInputBorder(
@@ -117,35 +172,27 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Field Password dengan tombol Hide/See
+                      // Field Password
                       TextField(
-                        obscureText:
-                            _obscurePassword, // Menggunakan variabel boolean
+                        controller: _passwordController, // Pasang Controller
+                        obscureText: _obscurePassword,
                         decoration: InputDecoration(
                           labelText: 'Password',
                           prefixIcon: Icon(
                             Icons.lock,
                             color: Colors.blue.shade800,
                           ),
-
-                          // Tambahan suffix icon (ikon di ujung kanan)
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
-                                  ? Icons
-                                        .visibility_off // Jika true (tertutup) -> icon mata silang
-                                  : Icons
-                                        .visibility, // Jika false (terbuka) -> icon mata terbuka
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
                               color: Colors.blue.shade800,
                             ),
-                            onPressed: () {
-                              // Mengubah state/status ketika ditekan
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
                           ),
-
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -169,25 +216,28 @@ class _LoginPageState extends State<LoginPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        onPressed: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const DashboardScreen(),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          'MASUK',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
+                        // Jalankan fungsi _loginAdmin jika tidak sedang loading
+                        onPressed: _isLoading ? null : _loginAdmin,
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'MASUK',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
                       ),
-                      const SizedBox(height: 25), // <-- TAMBAHKAN DARI SINI
+                      const SizedBox(height: 25),
                       // Pembatas Garis
                       Row(
                         children: [

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/login_screen.dart';
 import 'screens/public_catatan_screen.dart';
+import 'screens/dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,10 +44,26 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      // 2. Tentukan halaman utama secara dinamis berdasarkan URL browser
+      // 2. Logika Penentuan Halaman Utama
       home: isPublicForm
-          ? PublicCatatanScreen(initialKotakId: initialKotakId)
-          : const LoginPage(),
+          ? PublicCatatanScreen(
+              initialKotakId: initialKotakId,
+            ) // Jika Publik, langsung ke Form
+          : StreamBuilder<User?>(
+              // Mengecek status login secara real-time / menyimpan sesi
+              stream: FirebaseAuth.instance.authStateChanges(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (snapshot.hasData) {
+                  return const DashboardScreen(); // Jika sudah login, langsung ke Dashboard
+                }
+                return const LoginPage(); // Jika belum login, ke halaman Login
+              },
+            ),
     );
   }
 }

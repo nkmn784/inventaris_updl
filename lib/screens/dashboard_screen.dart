@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'daftar_barang_screen.dart';
 import 'apar_screen.dart';
 import 'daftar_penerangan_screen.dart';
@@ -287,13 +288,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            onPressed: () {
+            // Tambahkan 'async' di sini
+            onPressed: () async {
+              // 1. Tutup popup dialog konfirmasi terlebih dahulu
               Navigator.pop(context);
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginPage()),
-                (Route<dynamic> route) => false,
-              );
+
+              // 2. Hapus sesi login dari Firebase
+              await FirebaseAuth.instance.signOut();
+
+              // 3. Arahkan paksa kembali ke halaman Login
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                  (Route<dynamic> route) => false,
+                );
+              }
             },
             child: const Text('Logout'),
           ),
