@@ -1500,13 +1500,57 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (imageUrl.isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.network(
-                  imageUrl,
-                  width: double.infinity,
-                  height: 220,
-                  fit: BoxFit.cover,
+              GestureDetector(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    barrierColor: Colors.black.withOpacity(0.9),
+                    builder: (ctx) => Dialog(
+                      backgroundColor: Colors.transparent,
+                      insetPadding: EdgeInsets.zero,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          InteractiveViewer(
+                            panEnabled: true,
+                            boundaryMargin: const EdgeInsets.all(20),
+                            minScale: 0.5,
+                            maxScale: 4.0,
+                            child: Center(
+                              child: Image.network(
+                                imageUrl,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 40,
+                            right: 20,
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                              onPressed: () => Navigator.pop(ctx),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                child: Hero(
+                  tag: 'p3k_image_${widget.docId}',
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      imageUrl,
+                      width: double.infinity,
+                      height: 220,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
               ),
             const SizedBox(height: 20),
