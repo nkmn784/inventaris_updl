@@ -24,6 +24,16 @@ class P3kScreen extends StatefulWidget {
 class _P3kScreenState extends State<P3kScreen> {
   String _searchQuery = '';
 
+  // ✔️ 1. Deklarasikan variabel stream
+  late Stream<QuerySnapshot> _p3kStream;
+
+  // ✔️ 2. Inisialisasi stream di dalam initState agar hanya dipanggil 1 kali
+  @override
+  void initState() {
+    super.initState();
+    _p3kStream = FirestoreService().getBarangByKategori('Kotak P3K');
+  }
+
   // --- DIALOG TAMBAH KOTAK P3K ---
   void _showAddP3kDialog(BuildContext context) {
     TextEditingController namaController = TextEditingController();
@@ -528,7 +538,7 @@ class _P3kScreenState extends State<P3kScreen> {
           const SizedBox(height: 8),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirestoreService().getBarangByKategori('Kotak P3K'),
+              stream: _p3kStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());

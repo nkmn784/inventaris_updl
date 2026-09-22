@@ -20,8 +20,18 @@ class AparScreen extends StatefulWidget {
   State<AparScreen> createState() => _AparScreenState();
 }
 
+late Stream<QuerySnapshot> _aparStream;
+
 class _AparScreenState extends State<AparScreen> {
   String _searchQuery = '';
+  late Stream<QuerySnapshot> _aparStream;
+
+  // ✔️ TAMBAHKAN INI: Inisialisasi stream saat halaman pertama kali dibuka
+  @override
+  void initState() {
+    super.initState();
+    _aparStream = FirestoreService().getBarangByKategori('APAR');
+  }
 
   Color _getStatusColor(String status) {
     if (status == 'Tersedia') return Colors.green;
@@ -515,7 +525,7 @@ class _AparScreenState extends State<AparScreen> {
           const SizedBox(height: 8),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirestoreService().getBarangByKategori('APAR'),
+              stream: _aparStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting)
                   return const Center(child: CircularProgressIndicator());
@@ -785,10 +795,13 @@ class DetailAparScreen extends StatefulWidget {
 class _DetailAparScreenState extends State<DetailAparScreen> {
   late Map<String, dynamic> currentData;
 
+  late Stream<QuerySnapshot> _aparStream;
+
+  // 2. MASUKKAN PEMANGGILAN FIREBASE KE DALAM INIT STATE
   @override
   void initState() {
     super.initState();
-    currentData = Map.from(widget.dataApar);
+    _aparStream = FirestoreService().getBarangByKategori('APAR');
   }
 
   Future<void> _openGoogleMaps(String koordinat) async {

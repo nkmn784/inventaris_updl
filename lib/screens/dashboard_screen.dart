@@ -11,6 +11,7 @@ import 'global_search_screen.dart';
 import 'detail_barang_screen.dart';
 import 'detail_penerangan_screen.dart';
 import '../models/penerangan_model.dart';
+import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -21,6 +22,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
+  Timer? _debounce;
   final TextEditingController _searchController = TextEditingController();
 
   // State untuk Filter Kategori (Default semuanya terpilih)
@@ -52,16 +54,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Fungsi untuk menangani pencarian real-time (Live Search)
   void _onSearchChanged() {
-    String query = _searchController.text.trim();
-    if (query.isEmpty) {
-      setState(() {
-        _liveSearchResults = [];
-        _isSearching = false;
-      });
-    } else {
-      setState(() => _isSearching = true);
-      _performLiveSearch(query);
-    }
+    if (_debounce?.isActive ?? false)
+      _debounce!.cancel(); // Batalkan pencarian jika user masih ngetik
+
+    // Set jeda 500 milidetik (setengah detik)
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      String query = _searchController.text.trim();
+      if (query.isEmpty) {
+        setState(() {
+          _liveSearchResults = [];
+          _isSearching = false;
+        });
+      } else {
+        setState(() => _isSearching = true);
+        _performLiveSearch(
+          query,
+        ); // Firebase HANYA dipanggil 1 kali setelah selesai ngetik!
+      }
+    });
   }
 
   // Mengambil data dari kategori yang dicentang saja
@@ -1078,14 +1088,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ? 'Kotak P3K'
                     : item['nama'];
 
-                return StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
+                return FutureBuilder<AggregateQuerySnapshot>(
+                  future: FirebaseFirestore.instance
                       .collection(namaKoleksi)
-                      .snapshots(),
+                      .count()
+                      .get(), // Mengambil jumlah total dokumen saja secara efisien
                   builder: (context, snapshot) {
-                    int totalRealTime = snapshot.hasData
-                        ? snapshot.data!.docs.length
-                        : 0;
+                    int totalRealTime = 0;
+                    if (snapshot.hasData) {
+                      totalRealTime = snapshot.data!.count ?? 0;
+                    }
                     return _buildKategoriCard(context, item, totalRealTime);
                   },
                 );

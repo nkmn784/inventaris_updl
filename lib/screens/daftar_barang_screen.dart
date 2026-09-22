@@ -623,6 +623,16 @@ class DaftarBarangScreen extends StatefulWidget {
 class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
   String _searchQuery = '';
 
+  // ✔️ 1. Deklarasikan variabel stream
+  late Stream<QuerySnapshot> _barangStream;
+
+  // ✔️ 2. Inisialisasi stream di dalam initState agar hanya dipanggil 1 kali
+  @override
+  void initState() {
+    super.initState();
+    _barangStream = FirestoreService().getBarangByKategori(widget.namaKategori);
+  }
+
   String _formatTanggalEdit(Map<String, dynamic> data) {
     dynamic val =
         data['updated_at'] ??
@@ -703,9 +713,7 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
           const SizedBox(height: 8),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirestoreService().getBarangByKategori(
-                widget.namaKategori,
-              ),
+              stream: _barangStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());

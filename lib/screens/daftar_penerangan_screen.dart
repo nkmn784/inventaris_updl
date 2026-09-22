@@ -17,7 +17,16 @@ class _DaftarPeneranganScreenState extends State<DaftarPeneranganScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   String _searchQuery = '';
 
-  // Mengatur warna indikator berdasarkan status lampu
+  // ✔️ 1. Deklarasikan variabel stream
+  late Stream<QuerySnapshot> _peneranganStream;
+
+  // ✔️ 2. Inisialisasi stream di dalam initState agar hanya dipanggil 1 kali
+  @override
+  void initState() {
+    super.initState();
+    _peneranganStream = _firestoreService.getBarangByKategori('Penerangan');
+  }
+
   Color _getStatusColor(String? status) {
     switch (status?.toLowerCase()) {
       case 'normal':
@@ -99,7 +108,7 @@ class _DaftarPeneranganScreenState extends State<DaftarPeneranganScreen> {
           // List Data dari Firestore
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: _firestoreService.getBarangByKategori('Penerangan'),
+              stream: _peneranganStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
