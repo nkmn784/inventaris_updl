@@ -387,21 +387,24 @@ class _AparScreenState extends State<AparScreen> {
                         onPressed: isSaving
                             ? null
                             : () async {
-                                if (merkController.text.isEmpty ||
-                                    selectedImageBytes == null) {
+                                // Hapus validasi selectedImageBytes == null
+                                if (merkController.text.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text(
-                                        'Foto dan Merk wajib diisi!',
-                                      ),
+                                      content: Text('Merk wajib diisi!'),
                                     ),
                                   );
                                   return;
                                 }
                                 setDialogState(() => isSaving = true);
                                 try {
-                                  String? url = await CloudinaryService()
-                                      .uploadImageBytes(selectedImageBytes!);
+                                  // Pengecekan jika foto diisi baru jalankan Cloudinary
+                                  String? url;
+                                  if (selectedImageBytes != null) {
+                                    url = await CloudinaryService()
+                                        .uploadImageBytes(selectedImageBytes!);
+                                  }
+
                                   await FirestoreService().tambahBarang(
                                     'APAR',
                                     {
@@ -801,6 +804,7 @@ class _DetailAparScreenState extends State<DetailAparScreen> {
   @override
   void initState() {
     super.initState();
+    currentData = Map.from(widget.dataApar);
     _aparStream = FirestoreService().getBarangByKategori('APAR');
   }
 
