@@ -1092,12 +1092,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   future: FirebaseFirestore.instance
                       .collection(namaKoleksi)
                       .count()
-                      .get(), // Mengambil jumlah total dokumen saja secara efisien
+                      .get(),
                   builder: (context, snapshot) {
-                    int totalRealTime = 0;
-                    if (snapshot.hasData) {
-                      totalRealTime = snapshot.data!.count ?? 0;
+                    // 1. Jika masih loading, kirim nilai -1
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return _buildKategoriCard(context, item, -1);
                     }
+                    // 2. Jika terjadi error, cetak di konsol dan tampilkan 0
+                    if (snapshot.hasError) {
+                      debugPrint(
+                        "Error hitung ${item['nama']}: ${snapshot.error}",
+                      );
+                      return _buildKategoriCard(context, item, 0);
+                    }
+
+                    int totalRealTime = snapshot.data?.count ?? 0;
                     return _buildKategoriCard(context, item, totalRealTime);
                   },
                 );
