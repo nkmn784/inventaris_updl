@@ -2,7 +2,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart' as exc;
-import 'package:file_saver/file_saver.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:universal_html/html.dart' as html;
 import '../services/firestore_service.dart';
 import 'tambah_barang_screen.dart';
 import 'detail_barang_screen.dart';
@@ -590,21 +594,57 @@ class DaftarBarangScreen extends StatefulWidget {
       if (fileBytes == null) throw Exception("Gagal membuat file Excel");
 
       final String namaFile =
-          'Laporan_${namaKategori}_${DateTime.now().millisecondsSinceEpoch}';
+          'Laporan_${namaKategori.replaceAll(" ", "_")}_${DateTime.now().millisecondsSinceEpoch}.xlsx';
 
-      await FileSaver.instance.saveFile(
-        name: '$namaFile.xlsx',
-        bytes: Uint8List.fromList(fileBytes),
-        mimeType: MimeType.microsoftExcel,
-      );
+      if (kIsWeb) {
+        // Logika download untuk Web Browser
+        final blob = html.Blob([
+          fileBytes,
+        ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.document.createElement('a') as html.AnchorElement
+          ..href = url
+          ..style.display = 'none'
+          ..download = namaFile;
+        html.document.body!.children.add(anchor);
+        anchor.click();
+        html.document.body!.children.remove(anchor);
+        html.Url.revokeObjectUrl(url);
 
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Laporan $namaKategori berhasil diunduh!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Laporan $namaKategori berhasil didownload di Browser!',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        // Logika download untuk Mobile (Android/iOS) memunculkan dialog Share/Save
+        Directory tempDir = await getTemporaryDirectory();
+        String outputPath = '${tempDir.path}/$namaFile';
+        File file = File(outputPath);
+
+        await file.writeAsBytes(fileBytes);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Berhasil! Silakan pilih aplikasi untuk menyimpan filenya.',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+
+        // Memunculkan pop-up pilihan kirim ke WA, simpan ke file, dll
+        await Share.shareXFiles([
+          XFile(outputPath),
+        ], text: 'Laporan Inventaris ($namaKategori)');
+      }
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
