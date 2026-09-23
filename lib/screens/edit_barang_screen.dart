@@ -296,9 +296,7 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           'jumlah': sisaJumlahBaru,
           'sisa_jumlah': sisaJumlahBaru,
           'stok_sekarang': sisaJumlahBaru,
-          'tanggal_transaksi':
-              _tanggalTransaksiAtk?.toIso8601String() ??
-              DateTime.now().toIso8601String(),
+          'tanggal_transaksi': DateTime.now().toIso8601String(),
           'keterangan': _catatanAtkCtrl.text,
         });
 
@@ -334,9 +332,7 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           'jumlah': sisaJumlahBaru,
           'sisa_jumlah': sisaJumlahBaru,
           'stok_sekarang': sisaJumlahBaru,
-          'tanggal_transaksi':
-              _tanggalTransaksiAmenities?.toIso8601String() ??
-              DateTime.now().toIso8601String(),
+          'tanggal_transaksi': DateTime.now().toIso8601String(),
           'keterangan': _catatanAmenitiesCtrl.text,
         });
 
@@ -541,27 +537,17 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
             color: Color(0xFF0F3460),
           ),
         ),
-        const SizedBox(height: 8),
-        TextFormField(
-          readOnly: true,
-          decoration: _inputDecor(
-            'Tanggal Transaksi',
-            suffixIcon: const Icon(Icons.calendar_month, color: Colors.blue),
-          ),
-          onTap: () async {
-            DateTime? d = await _selectDate(
-              context,
-              _tanggalTransaksiAmenities,
-            );
-            if (d != null) setState(() => _tanggalTransaksiAmenities = d);
-          },
-          controller: TextEditingController(
-            text: _tanggalTransaksiAmenities == null
-                ? 'Pilih Tanggal'
-                : '${_tanggalTransaksiAmenities!.day}-${_tanggalTransaksiAmenities!.month}-${_tanggalTransaksiAmenities!.year}',
+        const SizedBox(height: 24),
+        const Text(
+          'Data Transaksi / Pergerakan',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0F3460),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        // FORM TANGGAL DIHAPUS, LANGSUNG KE ROW MASUK/KELUAR
         Row(
           children: [
             Expanded(
@@ -652,23 +638,7 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        TextFormField(
-          readOnly: true,
-          decoration: _inputDecor(
-            'Tanggal Transaksi',
-            suffixIcon: const Icon(Icons.calendar_month, color: Colors.blue),
-          ),
-          onTap: () async {
-            DateTime? d = await _selectDate(context, _tanggalTransaksiAtk);
-            if (d != null) setState(() => _tanggalTransaksiAtk = d);
-          },
-          controller: TextEditingController(
-            text: _tanggalTransaksiAtk == null
-                ? 'Pilih Tanggal'
-                : '${_tanggalTransaksiAtk!.day}-${_tanggalTransaksiAtk!.month}-${_tanggalTransaksiAtk!.year}',
-          ),
-        ),
-        const SizedBox(height: 12),
+        // FORM TANGGAL DIHAPUS, LANGSUNG KE ROW MASUK/KELUAR
         Row(
           children: [
             Expanded(

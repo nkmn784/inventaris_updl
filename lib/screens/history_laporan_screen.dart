@@ -7,7 +7,7 @@ import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:universal_html/html.dart' as html;
-import 'daftar_barang_screen.dart'; // <--- IMPORT DAFTAR BARANG DI SINI
+import 'daftar_barang_screen.dart';
 
 class HistoryLaporanScreen extends StatefulWidget {
   const HistoryLaporanScreen({super.key});
@@ -182,7 +182,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                       return;
                     }
 
-                    // 1. Filter awal berdasarkan Kategori & Waktu (KODINGAN LAMA - JANGAN DIHAPUS)
+                    // 1. Filter awal berdasarkan Kategori & Waktu
                     List<QueryDocumentSnapshot> filteredDocs = allDocs.where((
                       doc,
                     ) {
@@ -217,7 +217,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                       return matchKat && matchBul && matchTah;
                     }).toList();
 
-                    // 2. LOGIKA HANYA AMBIL INSPEKSI TERBARU PER UNIT (KODINGAN LAMA)
+                    // 2. LOGIKA HANYA AMBIL INSPEKSI TERBARU PER UNIT
                     Map<String, QueryDocumentSnapshot> latestDocsMap = {};
                     for (var doc in filteredDocs) {
                       var data = doc.data() as Map<String, dynamic>;
@@ -341,7 +341,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
   }
 
   // ==========================================
-  // FUNGSI MEMBUAT FILE EXCEL (GABUNGAN KODINGAN LAMA & P3K BARU)
+  // FUNGSI MEMBUAT FILE EXCEL
   // ==========================================
   Future<void> _exportToExcel(
     List<QueryDocumentSnapshot> docs,
@@ -415,6 +415,9 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
         periodeText = 'KESELURUHAN DATA';
       }
 
+      // ==========================================================
+      // KONDISI 1: KOTAK P3K
+      // ==========================================================
       if (kategori == 'Kotak P3K') {
         // --- SHEET 1: HASIL INSPEKSI ---
         Sheet sheet1 = excel['Hasil Inspeksi'];
@@ -469,6 +472,9 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           'Alkohol 70%',
           'Buku Panduan',
           'Buku Catatan',
+          'Kadaluarsa Aquades',
+          'Kadaluarsa Povidone Iodine',
+          'Kadaluarsa Alkohol 70%',
           'Keterangan',
         ];
 
@@ -530,7 +536,31 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           'Buku Catatan & Daftar Isi': [1, 1, 1],
         };
 
-        masterData.forEach((docId, mData) {
+        // --- MENGURUTKAN KOTAK P3K BERDASARKAN NOMOR ---
+        List<Map<String, dynamic>> p3kList = masterData.values.toList();
+        p3kList.sort((a, b) {
+          var specA = a['spesifikasi'] ?? {};
+          var specB = b['spesifikasi'] ?? {};
+          int noA =
+              int.tryParse(
+                (specA['No P3K'] ?? '0').toString().replaceAll(
+                  RegExp(r'[^0-9]'),
+                  '',
+                ),
+              ) ??
+              0;
+          int noB =
+              int.tryParse(
+                (specB['No P3K'] ?? '0').toString().replaceAll(
+                  RegExp(r'[^0-9]'),
+                  '',
+                ),
+              ) ??
+              0;
+          return noA.compareTo(noB);
+        });
+
+        for (var mData in p3kList) {
           var spec = mData['spesifikasi'] ?? {};
           String tipe = spec['Tipe'] ?? 'A';
           int typeIndex = tipe.contains('B') ? 1 : (tipe.contains('C') ? 2 : 0);
@@ -596,7 +626,43 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
               '$curStock / $maxStock',
             );
           }
+          Map<String, dynamic> expCairan = Map<String, dynamic>.from(
+            mData['kadaluarsa_cairan'] ?? {},
+          );
+          String expAquades = expCairan['Aquades']?.toString() ?? '-';
+          String expPovidone = expCairan['Povidone Iodine']?.toString() ?? '-';
+          String expAlkohol = expCairan['Alkohol 70%']?.toString() ?? '-';
 
+          sheet1
+              .cell(
+                CellIndex.indexByColumnRow(
+                  columnIndex: colOffset++,
+                  rowIndex: rIdx,
+                ),
+              )
+              .value = TextCellValue(
+            expAquades,
+          );
+          sheet1
+              .cell(
+                CellIndex.indexByColumnRow(
+                  columnIndex: colOffset++,
+                  rowIndex: rIdx,
+                ),
+              )
+              .value = TextCellValue(
+            expPovidone,
+          );
+          sheet1
+              .cell(
+                CellIndex.indexByColumnRow(
+                  columnIndex: colOffset++,
+                  rowIndex: rIdx,
+                ),
+              )
+              .value = TextCellValue(
+            expAlkohol,
+          );
           String ket =
               mData['keterangan']?.toString() ??
               mData['catatan']?.toString() ??
@@ -614,7 +680,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           );
 
           rIdx++;
-        });
+        }
 
         // --- SHEET 2: BUKU CATATAN ---
         Sheet sheet2 = excel['Buku Catatan'];
@@ -822,7 +888,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
         }
       }
       // ==========================================================
-      // KONDISI 2: PENERANGAN (KODINGAN LAMA)
+      // KONDISI 2: PENERANGAN
       // ==========================================================
       else if (kategori == 'Penerangan' && sheetObject != null) {
         sheetObject.cell(CellIndex.indexByString("A1")).value = TextCellValue(
@@ -944,7 +1010,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
         }
       }
       // ==========================================================
-      // KONDISI 3: APAR (KODINGAN LAMA)
+      // KONDISI 3: APAR
       // ==========================================================
       else if (kategori == 'APAR' && sheetObject != null) {
         sheetObject.cell(CellIndex.indexByString("A1")).value = TextCellValue(
@@ -991,6 +1057,35 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           cell.value = TextCellValue(headers[i]);
           cell.cellStyle = headerStyle;
         }
+
+        // --- MENGURUTKAN APAR BERDASARKAN NOMOR ---
+        docs.sort((a, b) {
+          int getAparNo(QueryDocumentSnapshot d) {
+            var data = d.data() as Map<String, dynamic>;
+            String docIdBarang =
+                data['docIdBarang']?.toString() ??
+                data['id_barang']?.toString() ??
+                '';
+
+            if (docIdBarang.isNotEmpty && masterData.containsKey(docIdBarang)) {
+              var spec = masterData[docIdBarang]!['spesifikasi'];
+              if (spec is Map && spec['No APAR'] != null) {
+                return int.tryParse(
+                      spec['No APAR'].toString().replaceAll(
+                        RegExp(r'[^0-9]'),
+                        '',
+                      ),
+                    ) ??
+                    0;
+              }
+            }
+
+            String nama = data['nama_barang']?.toString() ?? '';
+            return int.tryParse(nama.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          }
+
+          return getAparNo(a).compareTo(getAparNo(b));
+        });
 
         int rowIndex = 6;
         int no = 1;

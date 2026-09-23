@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart'; // <-- Tambahkan ini untuk akses GPS
 
 import '../models/penerangan_model.dart';
 import '../services/firestore_service.dart';
@@ -17,6 +18,12 @@ class EditPeneranganScreen extends StatefulWidget {
 class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
   final _formKey = GlobalKey<FormState>();
 
+  // Form Field Lokasi
+  late TextEditingController _gedungRuanganCtrl;
+  late TextEditingController _lokasiSpesifikCtrl;
+  late TextEditingController _koordinatCtrl;
+
+  // Form Field Detail Alat
   late TextEditingController _merkCtrl;
   late TextEditingController _wattCtrl;
   late TextEditingController _petugasCtrl;
@@ -24,8 +31,9 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
 
   late String _statusTerpilih;
   late String _jenisLampuTerpilih;
-  bool _gantiBohlamBaru = true;
+  bool _gantiBohlamBaru = false; // <-- Diubah jadi default false agar aman
   bool _isLoading = false;
+  bool _isLocating = false;
 
   final List<String> _listStatus = ['Normal', 'Mati', 'Rusak', 'Hilang'];
   final List<String> _listJenisLampu = [
@@ -39,6 +47,16 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
   @override
   void initState() {
     super.initState();
+    // Inisialisasi Lokasi
+    _gedungRuanganCtrl = TextEditingController(text: widget.item.gedungRuangan);
+    _lokasiSpesifikCtrl = TextEditingController(
+      text: widget.item.lokasiSpesifik,
+    );
+    _koordinatCtrl = TextEditingController(
+      text: '${widget.item.latitude}, ${widget.item.longitude}',
+    );
+
+    // Inisialisasi Detail
     _statusTerpilih = widget.item.status ?? 'Normal';
     _jenisLampuTerpilih = widget.item.jenisLampu ?? 'LED Bulb';
     _merkCtrl = TextEditingController(text: widget.item.merkLampu);
@@ -51,11 +69,51 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
 
   @override
   void dispose() {
+    _gedungRuanganCtrl.dispose();
+    _lokasiSpesifikCtrl.dispose();
+    _koordinatCtrl.dispose();
     _merkCtrl.dispose();
     _wattCtrl.dispose();
     _petugasCtrl.dispose();
     _catatanCtrl.dispose();
     super.dispose();
+  }
+
+  // Fungsi mengambil titik koordinat GPS saat ini
+  Future<void> _fetchCurrentLocation() async {
+    setState(() {
+      _isLocating = true;
+      _koordinatCtrl.text = "Mengambil GPS...";
+    });
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() => _koordinatCtrl.text = "GPS Mati");
+        return;
+      }
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        setState(() => _koordinatCtrl.text = "Izin Ditolak");
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+      );
+
+      setState(() {
+        _koordinatCtrl.text = "${position.latitude}, ${position.longitude}";
+      });
+    } catch (e) {
+      setState(() => _koordinatCtrl.text = "Gagal GPS");
+    } finally {
+      setState(() => _isLocating = false);
+    }
   }
 
   Future<String> _generateKodeUnikUnik() async {
@@ -102,7 +160,7 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
       riwayatBaru.add({
         'tindakan': _gantiBohlamBaru
             ? 'Ganti Bohlam Baru'
-            : 'Perawatan / Ubah Status',
+            : 'Perawatan / Ubah Data',
         'tanggal': DateTime.now().toIso8601String(),
         'petugas': _petugasCtrl.text.trim(),
         'statusBaru': _statusTerpilih,
@@ -112,7 +170,26 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
         'catatan': _catatanCtrl.text.trim(),
       });
 
+      // Pecah koordinat string (lat, lng) ke double
+      double lat = widget.item.latitude ?? 0.0;
+      double lng = widget.item.longitude ?? 0.0;
+
+      if (_koordinatCtrl.text.contains(',')) {
+        var parts = _koordinatCtrl.text.split(',');
+        if (parts.length >= 2) {
+          lat = double.tryParse(parts[0].trim()) ?? lat;
+          lng = double.tryParse(parts[1].trim()) ?? lng;
+        }
+      }
+
       Map<String, dynamic> dataUpdate = {
+        // Lokasi
+        'gedung_ruangan': _gedungRuanganCtrl.text.trim(),
+        'lokasi_spesifik': _lokasiSpesifikCtrl.text.trim(),
+        'latitude': lat,
+        'longitude': lng,
+
+        // Detail
         'status': _statusTerpilih,
         'jenis_lampu': _jenisLampuTerpilih,
         'merk_lampu': _merkCtrl.text.trim(),
@@ -138,7 +215,7 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
           Navigator.pop(context, true);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Status berhasil diperbarui'),
+              content: Text('Data berhasil diperbarui'),
               backgroundColor: Colors.green,
             ),
           );
@@ -231,7 +308,7 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
       backgroundColor: Colors.blue.shade50,
       appBar: AppBar(
         title: const Text(
-          'Perawatan & Ganti Lampu',
+          'Perawatan & Edit Data',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.blue.shade900,
@@ -245,7 +322,102 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Card Switcher Ganti Bohlam Baru
+              // 1. Card Input Lokasi
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.shade100.withOpacity(0.5),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Informasi Lokasi',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Color(0xFF0F3460),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _gedungRuanganCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Gedung / Ruangan',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.business),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 14,
+                        ),
+                      ),
+                      validator: (val) =>
+                          val == null || val.isEmpty ? 'Wajib diisi' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _lokasiSpesifikCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Lokasi Spesifik',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.my_location),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 14,
+                        ),
+                      ),
+                      validator: (val) =>
+                          val == null || val.isEmpty ? 'Wajib diisi' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _koordinatCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Titik Koordinat (Latitude, Longitude)',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.gps_fixed),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 14,
+                        ),
+                        suffixIcon: IconButton(
+                          icon: _isLocating
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.location_searching),
+                          onPressed: _isLocating
+                              ? null
+                              : () => _fetchCurrentLocation(),
+                          color: Colors.blue.shade700,
+                          tooltip: 'Ambil Titik Saat Ini',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // 2. Card Switcher Ganti Bohlam Baru
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -270,7 +442,7 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
                     ),
                   ),
                   subtitle: const Text(
-                    'Aktifkan jika melakukan pergantian fisik bohlam/lampu.',
+                    'Aktifkan jika melakukan pergantian fisik bohlam/lampu agar tergenerate kode unik baru.',
                     style: TextStyle(fontSize: 12),
                   ),
                   value: _gantiBohlamBaru,
@@ -280,7 +452,7 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Card Form Input Perawatan
+              // 3. Card Form Input Perawatan & Alat
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -298,7 +470,7 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Detail Perawatan & Spesifikasi',
+                      'Detail Alat & Perawatan',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
