@@ -162,8 +162,33 @@ class DaftarBarangScreen extends StatefulWidget {
           return data.toString();
         }
 
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
+        // --- MENGURUTKAN APD SESUAI ABJAD ---
+        List<QueryDocumentSnapshot> sortedApdDocs = snapshot.docs.toList();
+        sortedApdDocs.sort((a, b) {
+          final dataA = a.data() as Map<String, dynamic>;
+          final dataB = b.data() as Map<String, dynamic>;
+          String namaA =
+              (dataA['peralatan'] ??
+                      dataA['nama_apd'] ??
+                      dataA['nama_barang'] ??
+                      dataA['nama'] ??
+                      '')
+                  .toString()
+                  .toLowerCase();
+          String namaB =
+              (dataB['peralatan'] ??
+                      dataB['nama_apd'] ??
+                      dataB['nama_barang'] ??
+                      dataB['nama'] ??
+                      '')
+                  .toString()
+                  .toLowerCase();
+          return namaA.compareTo(namaB);
+        });
+        // ------------------------------------
+
+        for (var doc in sortedApdDocs) {
+          final data = doc.data() as Map<String, dynamic>;
           List<String> rowData = [
             nomorUrut.toString(),
             formatData(
@@ -801,9 +826,37 @@ class _DaftarBarangScreenState extends State<DaftarBarangScreen> {
                     searchString =
                         '${data['nama_barang'] ?? data['nama'] ?? data['nama_alat'] ?? ''} ${data['lokasi'] ?? ''}';
                   }
-
                   return searchString.toLowerCase().contains(_searchQuery);
                 }).toList();
+
+                // --- MENGURUTKAN SESUAI ABJAD (A-Z) ---
+                dokumen.sort((a, b) {
+                  final dataA = a.data() as Map<String, dynamic>;
+                  final dataB = b.data() as Map<String, dynamic>;
+
+                  // Mengambil nama barang dari berbagai kemungkinan key kategori
+                  String namaA =
+                      (dataA['peralatan'] ??
+                              dataA['nama_barang'] ??
+                              dataA['nama_atk'] ??
+                              dataA['nama_apd'] ??
+                              dataA['nama'] ??
+                              '')
+                          .toString()
+                          .toLowerCase();
+                  String namaB =
+                      (dataB['peralatan'] ??
+                              dataB['nama_barang'] ??
+                              dataB['nama_atk'] ??
+                              dataB['nama_apd'] ??
+                              dataB['nama'] ??
+                              '')
+                          .toString()
+                          .toLowerCase();
+
+                  return namaA.compareTo(namaB);
+                });
+                // --------------------------------------
 
                 if (dokumen.isEmpty) {
                   return Center(

@@ -151,6 +151,14 @@ class _DaftarPeneranganScreenState extends State<DaftarPeneranganScreen> {
                     })
                     .toList();
 
+                // --- MENGURUTKAN SESUAI ABJAD (Berdasarkan Gedung/Ruangan) ---
+                listPenerangan.sort((a, b) {
+                  String namaA = (a.gedungRuangan ?? '').toLowerCase();
+                  String namaB = (b.gedungRuangan ?? '').toLowerCase();
+                  return namaA.compareTo(namaB);
+                });
+                // -------------------------------------------------------------
+
                 if (listPenerangan.isEmpty) {
                   return const Center(
                     child: Text(
