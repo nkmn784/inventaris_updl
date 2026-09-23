@@ -930,6 +930,32 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           cell.cellStyle = headerStyle;
         }
 
+        // --- MENGURUTKAN PENERANGAN BERDASARKAN GEDUNG/RUANGAN ---
+        docs.sort((a, b) {
+          String namaA =
+              ((a.data() as Map<String, dynamic>)['gedung_ruangan'] ?? '')
+                  .toString()
+                  .toLowerCase();
+          String namaB =
+              ((b.data() as Map<String, dynamic>)['gedung_ruangan'] ?? '')
+                  .toString()
+                  .toLowerCase();
+          return namaA.compareTo(namaB);
+        });
+
+        // --- FUNGSI MERAPIKAN TEKS MENJADI TITLE CASE ---
+        String formatTeks(String? teks) {
+          if (teks == null || teks.trim().isEmpty || teks == '-') return '-';
+          return teks
+              .trim()
+              .split(' ')
+              .map((word) {
+                if (word.isEmpty) return '';
+                return word[0].toUpperCase() + word.substring(1).toLowerCase();
+              })
+              .join(' ');
+        }
+
         int rowIndex = 6;
         for (var doc in docs) {
           var data = doc.data() as Map<String, dynamic>;
@@ -941,28 +967,29 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex),
               )
               .value = TextCellValue(
-            data['gedung_ruangan']?.toString() ?? '-',
+            formatTeks(data['gedung_ruangan']?.toString()),
           );
           sheetObject
               .cell(
                 CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex),
               )
               .value = TextCellValue(
-            data['lokasi_spesifik']?.toString() ?? '-',
+            formatTeks(data['lokasi_spesifik']?.toString()),
           );
           sheetObject
               .cell(
                 CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex),
               )
               .value = TextCellValue(
-            data['status']?.toString() ?? '-',
+            formatTeks(data['status']?.toString()),
           );
           sheetObject
               .cell(
                 CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex),
               )
               .value = TextCellValue(
-            data['kode_unik']?.toString() ?? '-',
+            (data['kode_unik']?.toString() ?? '-')
+                .toUpperCase(), // Kode unik selalu kapital penuh
           );
           sheetObject
               .cell(
@@ -976,14 +1003,14 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex),
               )
               .value = TextCellValue(
-            data['merk_lampu']?.toString() ?? '-',
+            formatTeks(data['merk_lampu']?.toString()),
           );
           sheetObject
               .cell(
                 CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex),
               )
               .value = TextCellValue(
-            data['jenis_lampu']?.toString() ?? '-',
+            formatTeks(data['jenis_lampu']?.toString()),
           );
           sheetObject
               .cell(
@@ -997,14 +1024,14 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: rowIndex),
               )
               .value = TextCellValue(
-            data['petugas_pasang']?.toString() ?? '-',
+            formatTeks(data['petugas_pasang']?.toString()),
           );
           sheetObject
               .cell(
                 CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: rowIndex),
               )
               .value = TextCellValue(
-            data['catatan']?.toString() ?? '-',
+            formatTeks(data['catatan']?.toString()),
           );
           rowIndex++;
         }

@@ -563,6 +563,35 @@ class _P3kScreenState extends State<P3kScreen> {
                   return str.contains(_searchQuery);
                 }).toList();
 
+                // --- MENGURUTKAN KOTAK P3K BERDASARKAN NOMOR ---
+                items.sort((a, b) {
+                  var specA =
+                      (a.data() as Map<String, dynamic>)['spesifikasi'] ?? {};
+                  var specB =
+                      (b.data() as Map<String, dynamic>)['spesifikasi'] ?? {};
+
+                  // Ambil nomor P3K, hilangkan huruf/spasi agar bisa diurutkan sebagai angka murni
+                  int noA =
+                      int.tryParse(
+                        (specA['No P3K'] ?? '0').toString().replaceAll(
+                          RegExp(r'[^0-9]'),
+                          '',
+                        ),
+                      ) ??
+                      0;
+                  int noB =
+                      int.tryParse(
+                        (specB['No P3K'] ?? '0').toString().replaceAll(
+                          RegExp(r'[^0-9]'),
+                          '',
+                        ),
+                      ) ??
+                      0;
+
+                  return noA.compareTo(noB);
+                });
+                // -----------------------------------------------
+
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: items.length,
