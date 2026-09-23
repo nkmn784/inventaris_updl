@@ -393,21 +393,24 @@ class _P3kScreenState extends State<P3kScreen> {
                         onPressed: isSaving
                             ? null
                             : () async {
-                                if (namaController.text.isEmpty ||
-                                    selectedImageBytes == null) {
+                                // Hapus validasi selectedImageBytes == null
+                                if (namaController.text.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text(
-                                        'Foto dan Nama Kotak wajib diisi!',
-                                      ),
+                                      content: Text('Nama Kotak wajib diisi!'),
                                     ),
                                   );
                                   return;
                                 }
                                 setDialogState(() => isSaving = true);
                                 try {
-                                  String? url = await CloudinaryService()
-                                      .uploadImageBytes(selectedImageBytes!);
+                                  // Pengecekan jika foto diisi baru jalankan Cloudinary
+                                  String? url;
+                                  if (selectedImageBytes != null) {
+                                    url = await CloudinaryService()
+                                        .uploadImageBytes(selectedImageBytes!);
+                                  }
+
                                   String tipeHuruf =
                                       selectedTipeP3K.contains('A')
                                       ? 'A'
