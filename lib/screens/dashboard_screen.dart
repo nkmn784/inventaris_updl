@@ -12,6 +12,9 @@ import 'detail_barang_screen.dart';
 import 'detail_penerangan_screen.dart';
 import '../models/penerangan_model.dart';
 import 'dart:async';
+import 'tambah_kategori_screen.dart';
+import 'daftar_barang_dinamis_screen.dart';
+import 'manajemen_kategori_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -785,6 +788,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         elevation: 0,
         backgroundColor: Colors.blue.shade900,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            tooltip: 'Kelola Kategori',
+            icon: const Icon(Icons.settings_suggest),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ManajemenKategoriScreen(),
+                ),
+              );
+            },
+          ),
+        ],
         titleSpacing: 16,
         title: Row(
           children: [
@@ -1079,35 +1096,78 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
 
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _kategoriList.length,
-              itemBuilder: (context, index) {
-                final item = _kategoriList[index];
-                String namaKoleksi = item['nama'] == 'P3K'
-                    ? 'Kotak P3K'
-                    : item['nama'];
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('Master_Kategori')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                // 1. Siapkan list default bawaan sistem (APAR, P3K, dll)
+                List<Map<String, dynamic>> semuaKategori = List.from(
+                  _kategoriList,
+                );
 
-                return FutureBuilder<AggregateQuerySnapshot>(
-                  future: FirebaseFirestore.instance
-                      .collection(namaKoleksi)
-                      .count()
-                      .get(),
-                  builder: (context, snapshot) {
-                    // 1. Jika masih loading, kirim nilai -1
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return _buildKategoriCard(context, item, -1);
-                    }
-                    // 2. Jika terjadi error, cetak di konsol dan tampilkan 0
-                    if (snapshot.hasError) {
-                      debugPrint(
-                        "Error hitung ${item['nama']}: ${snapshot.error}",
-                      );
-                      return _buildKategoriCard(context, item, 0);
-                    }
+                // 2. Gabungkan dengan list kategori baru dari Firebase secara otomatis
+                // 2. Gabungkan dengan list kategori baru dari Firebase secara otomatis
+                if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                  // Daftar penerjemah teks ke ikon
+                  Map<String, IconData> kamusIcon = {
+                    'Kotak Barang': Icons.inventory_2,
+                    'Ruangan / Gedung': Icons.apartment,
+                    'Kendaraan / Mobil': Icons.directions_car,
+                    'Komputer / Elektronik': Icons.computer,
+                    'Mesin / Listrik': Icons.electrical_services,
+                    'Peralatan / Kunci': Icons.build,
+                    'Dokumen / Arsip': Icons.folder_special,
+                    'Kesehatan / Medis': Icons.medical_services,
+                    'inventory_2':
+                        Icons.inventory_2, // Toleransi untuk data lama Anda
+                  };
 
-                    int totalRealTime = snapshot.data?.count ?? 0;
-                    return _buildKategoriCard(context, item, totalRealTime);
+                  for (var doc in snapshot.data!.docs) {
+                    var data = doc.data() as Map<String, dynamic>;
+
+                    // Terjemahkan nama ikon dari Firebase ke IconData asli (Default: Puzzle)
+                    String namaIconDisimpan = data['icon']?.toString() ?? '';
+                    IconData iconFinal =
+                        kamusIcon[namaIconDisimpan] ?? Icons.extension;
+
+                    semuaKategori.add({
+                      'nama': data['nama_kategori'] ?? 'Kategori Baru',
+                      'icon':
+                          iconFinal, // <--- GUNAKAN VARIABEL YANG SUDAH DITERJEMAHKAN
+                      'is_dinamis': true,
+                      'skema_form': data['skema_form'],
+                    });
+                  }
+                }
+
+                // 3. Tampilkan seluruh kategori ke layar
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: semuaKategori.length,
+                  itemBuilder: (context, index) {
+                    final item = semuaKategori[index];
+                    String namaKoleksi = item['nama'] == 'P3K'
+                        ? 'Kotak P3K'
+                        : item['nama'];
+
+                    return FutureBuilder<AggregateQuerySnapshot>(
+                      future: FirebaseFirestore.instance
+                          .collection(namaKoleksi)
+                          .count()
+                          .get(),
+                      builder: (context, countSnapshot) {
+                        if (countSnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return _buildKategoriCard(context, item, -1);
+                        }
+                        if (countSnapshot.hasError) {
+                          return _buildKategoriCard(context, item, 0);
+                        }
+                        int totalRealTime = countSnapshot.data?.count ?? 0;
+                        return _buildKategoriCard(context, item, totalRealTime);
+                      },
+                    );
                   },
                 );
               },
@@ -1115,7 +1175,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: Colors.blue.shade800,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_box),
+        label: const Text('Buat Kategori'),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const TambahKategoriScreen(),
+            ),
+          );
+        },
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [
@@ -1191,7 +1264,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
-            if (item['nama'] == 'APAR') {
+            if (item['is_dinamis'] == true) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DaftarBarangDinamisScreen(
+                    namaKategori: item['nama'],
+                    skemaForm:
+                        item['skema_form'], // Melempar blueprint form-nya!
+                  ),
+                ),
+              );
+            }
+            // JIKA YANG DIKLIK ADALAH KATEGORI BAWAAN LAMA
+            else if (item['nama'] == 'APAR') {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AparScreen()),
