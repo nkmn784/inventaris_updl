@@ -368,6 +368,20 @@ class _EditBarangScreenState extends State<EditBarangScreen> {
         dataUpdate,
       );
 
+      // --- SISIPKAN PENCATAT LOG DI SINI ---
+      String namaBarang =
+          dataUpdate['peralatan'] ??
+          dataUpdate['nama_barang'] ??
+          widget.dataBarang['peralatan'] ??
+          widget.dataBarang['nama_barang'] ??
+          'Barang';
+      await FirestoreService().catatLogAktivitas(
+        tipeAksi: 'EDIT',
+        kategori: _kategori,
+        detail: 'Memperbarui data $_kategori: $namaBarang',
+      );
+      // ----------------------------------------
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Data berhasil diperbarui!')),

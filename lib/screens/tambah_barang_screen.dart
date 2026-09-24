@@ -377,6 +377,16 @@ class _TambahBarangScreenState extends State<TambahBarangScreen> {
 
       await FirestoreService().tambahBarang(_kategoriTerpilih, dataSimpan);
 
+      // --- SISIPKAN PENCATAT LOG DI SINI ---
+      String namaBarang =
+          dataSimpan['peralatan'] ?? dataSimpan['nama_barang'] ?? 'Barang';
+      await FirestoreService().catatLogAktivitas(
+        tipeAksi: 'TAMBAH',
+        kategori: _kategoriTerpilih,
+        detail: 'Menambahkan data $_kategoriTerpilih: $namaBarang',
+      );
+      // ----------------------------------------
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Data berhasil disimpan!')),
