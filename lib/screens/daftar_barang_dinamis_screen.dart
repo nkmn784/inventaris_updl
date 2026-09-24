@@ -1,8 +1,5 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:excel/excel.dart' as exc;
-import 'package:file_saver/file_saver.dart';
 import 'tambah_barang_dinamis_screen.dart';
 import 'edit_barang_dinamis_screen.dart';
 import 'package:flutter/services.dart'; // Untuk fitur Salin (Clipboard)
@@ -26,7 +23,6 @@ class DaftarBarangDinamisScreen extends StatefulWidget {
 class _DaftarBarangDinamisScreenState extends State<DaftarBarangDinamisScreen> {
   String _searchQuery = '';
   late Stream<QuerySnapshot> _streamBarang;
-  bool _isExporting = false;
 
   @override
   void initState() {
@@ -36,138 +32,6 @@ class _DaftarBarangDinamisScreenState extends State<DaftarBarangDinamisScreen> {
         .snapshots();
   }
 
-  // --- FUNGSI EXPORT EXCEL DINAMIS ---
-  Future<void> _unduhExcelDinamis() async {
-    setState(() => _isExporting = true);
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection(widget.namaKategori)
-          .get();
-
-      if (snapshot.docs.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tidak ada data untuk diekspor.')),
-        );
-        setState(() => _isExporting = false);
-        return;
-      }
-
-      var excel = exc.Excel.createExcel();
-      String sheetName = widget.namaKategori;
-      excel.rename(excel.getDefaultSheet() ?? 'Sheet1', sheetName);
-      exc.Sheet sheetObject = excel[sheetName];
-
-      exc.CellStyle headerStyle = exc.CellStyle(
-        bold: true,
-        horizontalAlign: exc.HorizontalAlign.Center,
-        verticalAlign: exc.VerticalAlign.Center,
-        backgroundColorHex: exc.ExcelColor.fromHexString('#D3D3D3'),
-      );
-
-      List<String> headers = ['NO', 'TANGGAL INPUT'];
-      for (var field in widget.skemaForm) {
-        headers.add(field['label'].toString().toUpperCase());
-      }
-
-      for (int i = 0; i < headers.length; i++) {
-        var cell = sheetObject.cell(
-          exc.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0),
-        );
-        cell.value = exc.TextCellValue(headers[i]);
-        cell.cellStyle = headerStyle;
-      }
-
-      int rowIndex = 1;
-      int nomorUrut = 1;
-
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-
-        List<String> rowData = [
-          nomorUrut.toString(),
-          data['updated_at'] != null
-              ? data['updated_at'].toString().split('T')[0]
-              : '-',
-        ];
-
-        for (var field in widget.skemaForm) {
-          String label = field['label'];
-          String tipe = field['tipe_input'];
-          dynamic nilai = data[label];
-
-          String nilaiStr = '-';
-
-          // LOGIKA UNTUK MERAPIKAN GRUP BERULANG DI EXCEL
-          if (tipe == 'Grup Berulang (List Aset)' && nilai is List) {
-            List<dynamic> subFields =
-                field['sub_form'] ?? []; // Ambil urutan skema
-            List<String> barisanItem = [];
-
-            for (int j = 0; j < nilai.length; j++) {
-              if (nilai[j] is Map) {
-                Map mapItem = nilai[j] as Map;
-                List<String> urutanData = [];
-
-                // Susun teks berdasarkan urutan asli skema
-                for (var subKey in subFields) {
-                  String val = mapItem[subKey.toString()]?.toString() ?? '-';
-                  urutanData.add('$subKey: $val');
-                }
-
-                barisanItem.add('${j + 1}. ${urutanData.join(', ')}');
-              }
-            }
-            nilaiStr = barisanItem.isNotEmpty ? barisanItem.join('\n') : '-';
-          } else {
-            nilaiStr = nilai?.toString() ?? '-';
-          }
-
-          rowData.add(nilaiStr);
-        }
-
-        for (int i = 0; i < rowData.length; i++) {
-          var cell = sheetObject.cell(
-            exc.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: rowIndex),
-          );
-          cell.value = exc.TextCellValue(rowData[i]);
-        }
-        rowIndex++;
-        nomorUrut++;
-      }
-
-      var fileBytes = excel.encode();
-      if (fileBytes == null) throw Exception("Gagal membuat file Excel");
-
-      final String namaFile =
-          'Laporan_${widget.namaKategori}_${DateTime.now().millisecondsSinceEpoch}';
-      await FileSaver.instance.saveFile(
-        name: '$namaFile.xlsx',
-        bytes: Uint8List.fromList(fileBytes),
-        mimeType: MimeType.microsoftExcel,
-      );
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Excel berhasil diunduh!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal export: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() => _isExporting = false);
-    }
-  }
-
-  // --- POPUP DETAIL BARANG (DIPERBESAR & LEBIH LUAS) ---
   // --- POPUP DETAIL BARANG (DIPERBAIKI AGAR LEBIH KEMAS & PROFESIONAL) ---
   void _tampilkanDetail(Map<String, dynamic> data, String docId) {
     showDialog(
@@ -392,8 +256,7 @@ class _DaftarBarangDinamisScreenState extends State<DaftarBarangDinamisScreen> {
                                 var item = nilai[index];
                                 if (item is Map) {
                                   return Container(
-                                    width: double
-                                        .infinity, // Memenuhi ruang lebar popup secara sempurna
+                                    width: double.infinity,
                                     margin: const EdgeInsets.only(bottom: 10),
                                     padding: const EdgeInsets.all(14),
                                     decoration: BoxDecoration(
@@ -631,22 +494,7 @@ class _DaftarBarangDinamisScreenState extends State<DaftarBarangDinamisScreen> {
         title: Text(widget.namaKategori),
         backgroundColor: Colors.blue.shade900,
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            tooltip: 'Download Excel',
-            icon: _isExporting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Icon(Icons.download_rounded),
-            onPressed: _isExporting ? null : _unduhExcelDinamis,
-          ),
-        ],
+        // Tombol Download Dihapus dari Sini
       ),
       body: Column(
         children: [
