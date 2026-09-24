@@ -424,6 +424,12 @@ class _AparScreenState extends State<AparScreen> {
                                       'tanggal_inspeksi': null,
                                     },
                                   );
+                                  await FirestoreService().catatLogAktivitas(
+                                    tipeAksi: 'TAMBAH',
+                                    kategori: 'APAR',
+                                    detail:
+                                        'Menambahkan APAR No. ${aparNomor.text} (${merkController.text})',
+                                  );
                                   Navigator.pop(context);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
@@ -1267,7 +1273,12 @@ class _DetailAparScreenState extends State<DetailAparScreen> {
                                     widget.docId,
                                     updatedData,
                                   );
-
+                                  await FirestoreService().catatLogAktivitas(
+                                    tipeAksi: 'EDIT',
+                                    kategori: 'APAR',
+                                    detail:
+                                        'Memperbarui data APAR No. ${aparNomor.text} (${merkController.text})',
+                                  );
                                   setState(() {
                                     currentData.addAll(updatedData);
                                   });
@@ -1317,6 +1328,13 @@ class _DetailAparScreenState extends State<DetailAparScreen> {
   }
 
   void _hapusApar() {
+    // 1. Tarik data Nomor APAR dan Merk sebelum dihapus
+    var spec = currentData['spesifikasi'] is Map
+        ? currentData['spesifikasi'] as Map<String, dynamic>
+        : {};
+    String noApar = spec['No APAR'] ?? '-';
+    String merk = currentData['nama_barang'] ?? '-';
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1335,6 +1353,16 @@ class _DetailAparScreenState extends State<DetailAparScreen> {
               Navigator.pop(ctx);
               try {
                 await FirestoreService().hapusBarang('APAR', widget.docId);
+
+                // --- 3. SISIPKAN PENCATAT LOG DI SINI ---
+                await FirestoreService().catatLogAktivitas(
+                  tipeAksi: 'HAPUS',
+                  kategori: 'APAR',
+                  // GUNAKAN VARIABEL YANG SUDAH DITARIK DI ATAS
+                  detail: 'Menghapus APAR No. $noApar ($merk)',
+                );
+                // ----------------------------------------
+
                 if (mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(

@@ -159,6 +159,20 @@ class _P3kScreenState extends State<P3kScreen> {
               );
             }
 
+            Future<void> _pickDate(TextEditingController controller) async {
+              DateTime? picked = await showDatePicker(
+                context: context,
+                initialDate: DateTime.now().add(const Duration(days: 365)),
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2035),
+              );
+              if (picked != null) {
+                setDialogState(() {
+                  controller.text = DateFormat('dd/MM/yyyy').format(picked);
+                });
+              }
+            }
+
             Future<void> _fetchCurrentLocation() async {
               setDialogState(
                 () => koordinatController.text = "Mengambil GPS...",
@@ -184,20 +198,6 @@ class _P3kScreenState extends State<P3kScreen> {
                 );
               } catch (e) {
                 setDialogState(() => koordinatController.text = "Gagal GPS");
-              }
-            }
-
-            Future<void> _pickDate(TextEditingController controller) async {
-              DateTime? picked = await showDatePicker(
-                context: context,
-                initialDate: DateTime.now().add(const Duration(days: 365)),
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2035),
-              );
-              if (picked != null) {
-                setDialogState(() {
-                  controller.text = DateFormat('dd/MM/yyyy').format(picked);
-                });
               }
             }
 
@@ -303,7 +303,8 @@ class _P3kScreenState extends State<P3kScreen> {
                             Icons.my_location,
                             color: Colors.blue,
                           ),
-                          onPressed: _fetchCurrentLocation,
+                          onPressed:
+                              _fetchCurrentLocation, // Memanggil fungsi di atas
                         ),
                       ),
                     ),
@@ -444,6 +445,12 @@ class _P3kScreenState extends State<P3kScreen> {
                                             expAlkoholController.text,
                                       },
                                     },
+                                  );
+                                  await FirestoreService().catatLogAktivitas(
+                                    tipeAksi: 'TAMBAH',
+                                    kategori: 'Kotak P3K',
+                                    detail:
+                                        'Menambahkan Kotak P3K No. ${nomorP3kController.text} (${namaController.text})',
                                   );
                                   Navigator.pop(context);
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -998,6 +1005,34 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
               }
             }
 
+            Future<void> _fetchCurrentLocation() async {
+              setDialogState(
+                () => koordinatController.text = "Mengambil GPS...",
+              );
+              try {
+                bool serviceEnabled =
+                    await Geolocator.isLocationServiceEnabled();
+                if (!serviceEnabled) {
+                  setDialogState(() => koordinatController.text = "GPS Mati");
+                  return;
+                }
+                LocationPermission permission =
+                    await Geolocator.checkPermission();
+                if (permission == LocationPermission.denied) {
+                  permission = await Geolocator.requestPermission();
+                }
+                Position position = await Geolocator.getCurrentPosition(
+                  desiredAccuracy: LocationAccuracy.best,
+                );
+                setDialogState(
+                  () => koordinatController.text =
+                      "${position.latitude}, ${position.longitude}",
+                );
+              } catch (e) {
+                setDialogState(() => koordinatController.text = "Gagal GPS");
+              }
+            }
+
             return Dialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -1100,8 +1135,15 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
                     ),
                     TextField(
                       controller: koordinatController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Koordinat GPS',
+                        suffixIcon: IconButton(
+                          icon: const Icon(
+                            Icons.my_location,
+                            color: Colors.blue,
+                          ),
+                          onPressed: _fetchCurrentLocation,
+                        ),
                       ),
                     ),
                     DropdownButtonFormField<String>(
@@ -1227,6 +1269,14 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
                                     widget.docId,
                                     updatedData,
                                   );
+
+                                  await FirestoreService().catatLogAktivitas(
+                                    tipeAksi: 'EDIT',
+                                    kategori: 'Kotak P3K',
+                                    detail:
+                                        'Memperbarui data Kotak P3K No. ${nomorP3kController.text} (${namaController.text})',
+                                  );
+
                                   setState(() {
                                     currentData.addAll(updatedData);
                                   });
@@ -1276,6 +1326,11 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
   }
 
   void _hapusP3k() {
+    // 1. Tarik data Nomor dan Nama P3K sebelum dihapus
+    var spec = currentData['spesifikasi'] ?? {};
+    String noP3k = spec['No P3K'] ?? '-';
+    String namaP3k = currentData['nama_barang'] ?? '-';
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1294,6 +1349,15 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
               Navigator.pop(ctx);
               try {
                 await FirestoreService().hapusBarang('Kotak P3K', widget.docId);
+
+                // --- 3. SISIPKAN PENCATAT LOG DI SINI ---
+                await FirestoreService().catatLogAktivitas(
+                  tipeAksi: 'HAPUS',
+                  kategori: 'Kotak P3K',
+                  detail: 'Menghapus Kotak P3K No. $noP3k ($namaP3k)',
+                );
+                // ----------------------------------------
+
                 if (mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(

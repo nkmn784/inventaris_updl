@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -11,6 +13,52 @@ class FirestoreService {
   // Tambahan agar kompatibel dengan pemanggilan stream di file baru
   Stream<QuerySnapshot> getBarangStream(String kategori) {
     return _db.collection(kategori).snapshots();
+  }
+
+  // Fungsi pencatat Log Aktivitas
+  Future<void> catatLogAktivitas({
+    required String tipeAksi, // Contoh: "TAMBAH", "EDIT", "HAPUS"
+    required String kategori, // Contoh: "APAR", "Kotak P3K"
+    required String detail, // Contoh: "Menambahkan APAR No 43"
+  }) async {
+    try {
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      String namaPetugas = "Sistem / Unknown";
+      String uidUser = "unknown";
+
+      if (currentUser != null) {
+        uidUser = currentUser.uid;
+
+        // 1. Jadikan Email sebagai nama default jika profil tidak ditemukan
+        namaPetugas = currentUser.email ?? "Admin";
+
+        // 2. Coba cari nama aslinya di collection Users
+        var userDoc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(uidUser)
+            .get();
+
+        if (userDoc.exists && userDoc.data() != null) {
+          var data = userDoc.data()!;
+          if (data['nama'] != null &&
+              data['nama'].toString().trim().isNotEmpty) {
+            namaPetugas = data['nama']; // Timpa dengan nama asli jika ada
+          }
+        }
+      }
+
+      // Tembak data ke Log
+      await FirebaseFirestore.instance.collection('Activity_Logs').add({
+        'uid_user': uidUser,
+        'nama_user': namaPetugas,
+        'tipe_aksi': tipeAksi,
+        'kategori': kategori,
+        'detail': detail,
+        'waktu': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Gagal mencatat log: $e');
+    }
   }
 
   // --- FUNGSI TAMBAH DATA ---

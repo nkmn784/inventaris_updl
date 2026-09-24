@@ -687,6 +687,19 @@ class DetailBarangScreen extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(ctx);
               await FirestoreService().hapusBarang(kategori, documentId);
+
+              // --- SISIPKAN PENCATAT LOG DI SINI ---
+              String namaBarang =
+                  dataBarang['peralatan'] ??
+                  dataBarang['nama_barang'] ??
+                  'Barang';
+              await FirestoreService().catatLogAktivitas(
+                tipeAksi: 'HAPUS',
+                kategori: kategori,
+                detail: 'Menghapus data $kategori: $namaBarang',
+              );
+              // ----------------------------------------
+
               if (context.mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(

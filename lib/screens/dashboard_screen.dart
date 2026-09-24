@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'admin_panel_screen.dart';
 import 'daftar_barang_screen.dart';
 import 'apar_screen.dart';
 import 'daftar_penerangan_screen.dart';
@@ -28,6 +29,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Timer? _debounce;
   final TextEditingController _searchController = TextEditingController();
 
+  String _userName = 'Memuat...';
+  bool _isAdmin = false;
+
   // State untuk Filter Kategori (Default semuanya terpilih)
   final Map<String, bool> _selectedCategories = {
     'APAR': true,
@@ -46,6 +50,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+    _fetchUserData();
+  }
+
+  Future<void> _fetchUserData() async {
+    User? currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      try {
+        DocumentSnapshot doc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(currentUser.uid)
+            .get();
+
+        if (doc.exists) {
+          var data = doc.data() as Map<String, dynamic>;
+          if (mounted) {
+            setState(() {
+              _userName = data['nama'] ?? 'Petugas';
+              // Cek apakah role-nya Admin
+              _isAdmin = (data['role']?.toString().toLowerCase() == 'admin');
+            });
+          }
+        } else {
+          // Jika dokumen belum ada (misal akun lama sebelum sistem ini dibuat)
+          if (mounted) {
+            setState(() {
+              _userName = 'Admin (Legacy)';
+              _isAdmin = true; // Beri akses admin sementara agar tidak terkunci
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching user: $e');
+      }
+    }
   }
 
   @override
@@ -322,14 +360,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   List<Widget> listPeringatan = [];
 
-                  // 1. APAR (Status != Tersedia)
+                  // 1. APAR (Status != Tersedia atau Kadaluarsa)
                   for (var doc in aparDocs) {
                     var data = doc.data() as Map<String, dynamic>;
                     String status = data['keterangan'] ?? 'Tersedia';
-                    if (status.toLowerCase() != 'tersedia') {
-                      var spec = data['spesifikasi'] ?? {};
-                      String noApar = spec['No APAR'] ?? '-';
-                      String docId = doc.id;
+                    var spec = data['spesifikasi'] ?? {};
+                    String noApar = spec['No APAR'] ?? '-';
+                    String docId = doc.id;
+
+                    // --- CEK TANGGAL KADALUARSA APAR ---
+                    String tglKadaluarsa = data['tanggal_kadaluarsa'] ?? '';
+                    bool isExpired = false;
+                    bool isAlmostExpired = false;
+
+                    if (tglKadaluarsa.isNotEmpty && tglKadaluarsa != '-') {
+                      try {
+                        List<String> parts = tglKadaluarsa.split('/');
+                        if (parts.length == 3) {
+                          DateTime expDate = DateTime(
+                            int.parse(parts[2]),
+                            int.parse(parts[1]),
+                            int.parse(parts[0]),
+                          );
+                          // Hitung selisih hari ini dengan tanggal kadaluarsa
+                          int diffDays = expDate
+                              .difference(DateTime.now())
+                              .inDays;
+
+                          if (diffDays < 0) {
+                            isExpired = true;
+                          } else if (diffDays <= 7) {
+                            isAlmostExpired = true;
+                          }
+                        }
+                      } catch (_) {}
+                    }
+
+                    if (status.toLowerCase() != 'tersedia' ||
+                        isExpired ||
+                        isAlmostExpired) {
+                      String notifTitle = 'APAR No. $noApar Bermasalah';
+                      String notifSubtitle =
+                          'Status: $status • Lokasi: ${data['lokasi'] ?? '-'}';
+                      Color iconColor = Colors.redAccent;
+                      IconData notifIcon = Icons.warning_amber_rounded;
+
+                      if (isExpired) {
+                        notifTitle = 'APAR No. $noApar KADALUARSA';
+                        notifSubtitle =
+                            'Telah melewati batas tanggal kadaluarsa.';
+                        iconColor = Colors.red;
+                        notifIcon = Icons.error_outline;
+                      } else if (isAlmostExpired) {
+                        notifTitle = 'APAR No. $noApar HAMPIR KADALUARSA';
+                        notifSubtitle =
+                            'Akan kadaluarsa dalam seminggu atau kurang.';
+                        iconColor = Colors.orange;
+                      }
+
                       listPeringatan.add(
                         Container(
                           margin: const EdgeInsets.only(bottom: 12),
@@ -338,12 +426,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.red.shade100.withOpacity(0.5),
+                                color: iconColor.withOpacity(0.2),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4),
                               ),
                             ],
-                            border: Border.all(color: Colors.red.shade100),
+                            border: Border.all(
+                              color: iconColor.withOpacity(0.3),
+                            ),
                           ),
                           child: ListTile(
                             onTap: () {
@@ -359,23 +449,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                               );
                             },
-                            leading: const CircleAvatar(
-                              backgroundColor: Colors.redAccent,
-                              child: Icon(
-                                Icons.warning_amber_rounded,
-                                color: Colors.white,
-                              ),
+                            leading: CircleAvatar(
+                              backgroundColor: iconColor,
+                              child: Icon(notifIcon, color: Colors.white),
                             ),
                             title: Text(
-                              'APAR No. $noApar Bermasalah',
-                              style: const TextStyle(
+                              notifTitle,
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.red,
+                                color: iconColor,
                               ),
                             ),
-                            subtitle: Text(
-                              'Status: $status • Lokasi: ${data['lokasi'] ?? '-'}',
-                            ),
+                            subtitle: Text(notifSubtitle),
                             trailing: const Icon(
                               Icons.arrow_forward_ios,
                               size: 14,
@@ -386,9 +471,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     }
                   }
 
-                  // 2. Kotak P3K (Defisit > 0)
+                  // 2. Kotak P3K (Defisit > 0 atau Cairan Kadaluarsa)
                   for (var doc in p3kDocs) {
                     var data = doc.data() as Map<String, dynamic>;
+                    String docId = doc.id;
+
+                    // --- Cek Defisit Item Fisik ---
                     Map<String, dynamic> defisit = Map<String, dynamic>.from(
                       data['defisit_p3k'] ?? {},
                     );
@@ -396,8 +484,66 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     defisit.forEach((k, v) {
                       if (v is int && v > 0) butuhIsiUlang = true;
                     });
-                    if (butuhIsiUlang) {
-                      String docId = doc.id;
+
+                    // --- Cek Kadaluarsa Cairan Obat ---
+                    Map<String, dynamic> expCairan = Map<String, dynamic>.from(
+                      data['kadaluarsa_cairan'] ?? {},
+                    );
+                    bool isExpired = false;
+                    bool isAlmostExpired = false;
+                    List<String> expiredItems = [];
+                    List<String> almostExpiredItems = [];
+
+                    expCairan.forEach((key, val) {
+                      if (val != null &&
+                          val.toString().isNotEmpty &&
+                          val.toString() != '-') {
+                        try {
+                          List<String> parts = val.toString().split('/');
+                          if (parts.length == 3) {
+                            DateTime expDate = DateTime(
+                              int.parse(parts[2]),
+                              int.parse(parts[1]),
+                              int.parse(parts[0]),
+                            );
+                            int diffDays = expDate
+                                .difference(DateTime.now())
+                                .inDays;
+
+                            if (diffDays < 0) {
+                              isExpired = true;
+                              expiredItems.add(key);
+                            } else if (diffDays <= 7) {
+                              isAlmostExpired = true;
+                              almostExpiredItems.add(key);
+                            }
+                          }
+                        } catch (_) {}
+                      }
+                    });
+
+                    if (butuhIsiUlang || isExpired || isAlmostExpired) {
+                      String notifTitle =
+                          '${data['nama_barang'] ?? 'Kotak P3K'} Butuh Isi Ulang';
+                      String notifSubtitle =
+                          'Lokasi: ${data['lokasi'] ?? '-'} • Item P3K kurang.';
+                      Color iconColor = Colors.orange;
+                      IconData notifIcon = Icons.medical_services;
+
+                      // Prioritaskan notifikasi kadaluarsa terlebih dahulu jika terjadi bersamaan
+                      if (isExpired) {
+                        notifTitle = 'Cairan P3K KADALUARSA';
+                        notifSubtitle =
+                            'Item kadaluarsa: ${expiredItems.join(', ')}';
+                        iconColor = Colors.red;
+                        notifIcon = Icons.warning_amber_rounded;
+                      } else if (isAlmostExpired) {
+                        notifTitle = 'Cairan P3K HAMPIR KADALUARSA';
+                        notifSubtitle =
+                            'Segera cek: ${almostExpiredItems.join(', ')}';
+                        iconColor = Colors.deepOrange;
+                      }
+
                       listPeringatan.add(
                         Container(
                           margin: const EdgeInsets.only(bottom: 12),
@@ -406,12 +552,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.orange.shade100.withOpacity(0.5),
+                                color: iconColor.withOpacity(0.2),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4),
                               ),
                             ],
-                            border: Border.all(color: Colors.orange.shade100),
+                            border: Border.all(
+                              color: iconColor.withOpacity(0.3),
+                            ),
                           ),
                           child: ListTile(
                             onTap: () {
@@ -427,23 +575,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                               );
                             },
-                            leading: const CircleAvatar(
-                              backgroundColor: Colors.orange,
-                              child: Icon(
-                                Icons.medical_services,
-                                color: Colors.white,
-                              ),
+                            leading: CircleAvatar(
+                              backgroundColor: iconColor,
+                              child: Icon(notifIcon, color: Colors.white),
                             ),
                             title: Text(
-                              '${data['nama_barang'] ?? 'Kotak P3K'} Butuh Isi Ulang',
-                              style: const TextStyle(
+                              notifTitle,
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.orange,
+                                color: iconColor,
                               ),
                             ),
-                            subtitle: Text(
-                              'Lokasi: ${data['lokasi'] ?? '-'} • Item P3K kurang.',
-                            ),
+                            subtitle: Text(notifSubtitle),
                             trailing: const Icon(
                               Icons.arrow_forward_ios,
                               size: 14,
@@ -789,18 +932,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: Colors.blue.shade900,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            tooltip: 'Kelola Kategori',
-            icon: const Icon(Icons.settings_suggest),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ManajemenKategoriScreen(),
-                ),
-              );
-            },
-          ),
+          // --- HANYA TAMPILKAN TOMBOL JIKA _isAdmin == true ---
+          if (_isAdmin)
+            IconButton(
+              tooltip: 'Panel Admin',
+              icon: const Icon(Icons.settings_suggest),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AdminPanelScreen(),
+                  ),
+                );
+              },
+            ),
         ],
         titleSpacing: 16,
         title: Row(
@@ -832,8 +977,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     letterSpacing: 0.5,
                   ),
                 ),
+                // --- UBAH TEKS DI SINI ---
                 Text(
-                  'Dashboard Overview',
+                  'Selamat Datang, $_userName',
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.blue.shade200,
@@ -1175,20 +1321,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: Colors.blue.shade800,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_box),
-        label: const Text('Buat Kategori'),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const TambahKategoriScreen(),
-            ),
-          );
-        },
-      ),
+      // --- HANYA TAMPILKAN TOMBOL FAB JIKA _isAdmin == true ---
+      floatingActionButton: _isAdmin
+          ? FloatingActionButton.extended(
+              backgroundColor: Colors.blue.shade800,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add_box),
+              label: const Text('Buat Kategori'),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const TambahKategoriScreen(),
+                  ),
+                );
+              },
+            )
+          : null, // Hilangkan tombol jika bukan admin
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [
