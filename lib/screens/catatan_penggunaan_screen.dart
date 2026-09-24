@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/firestore_service.dart';
 
 class CatatanPenggunaanScreen extends StatefulWidget {
   final String docIdBarang;
@@ -274,6 +275,16 @@ class _CatatanPenggunaanScreenState extends State<CatatanPenggunaanScreen> {
                                 });
                               }
                             });
+                            String daftarDipakai = listPemakaian
+                                .map((e) => "${e['item']} (${e['qty'].text})")
+                                .join(', ');
+
+                            await FirestoreService().catatLogAktivitas(
+                              tipeAksi: 'EDIT',
+                              kategori: 'Kotak P3K',
+                              detail:
+                                  '${pemakaiController.text.trim()} memakai $daftarDipakai dari ${widget.namaKotak}',
+                            );
 
                             Navigator.pop(ctx);
                             ScaffoldMessenger.of(this.context).showSnackBar(

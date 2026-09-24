@@ -206,6 +206,14 @@ class _EditPeneranganScreenState extends State<EditPeneranganScreen> {
         dataUpdate,
       );
 
+      await FirestoreService().catatLogAktivitas(
+        tipeAksi: 'EDIT',
+        kategori: 'Penerangan',
+        detail: _gantiBohlamBaru
+            ? 'Mengganti bohlam lampu baru di ${_gedungRuanganCtrl.text.trim()} ($kodeLampuBaru)'
+            : 'Memperbarui data penerangan di ${_gedungRuanganCtrl.text.trim()} ($kodeLampuBaru)',
+      );
+
       if (mounted) {
         setState(() => _isLoading = false);
 

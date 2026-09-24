@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../services/cloudinary_service.dart';
+import '../services/firestore_service.dart';
 
 class TambahBarangDinamisScreen extends StatefulWidget {
   final String namaKategori;
@@ -201,6 +202,19 @@ class _TambahBarangDinamisScreenState extends State<TambahBarangDinamisScreen> {
       await FirebaseFirestore.instance
           .collection(widget.namaKategori)
           .add(dataAkhir);
+
+      String namaIdentitas = 'Data Baru';
+      if (widget.skemaForm.isNotEmpty) {
+        String labelPertama = widget.skemaForm[0]['label'];
+        namaIdentitas = dataAkhir[labelPertama]?.toString() ?? 'Data Baru';
+      }
+
+      await FirestoreService().catatLogAktivitas(
+        tipeAksi: 'TAMBAH',
+        kategori: widget.namaKategori,
+        detail:
+            'Menambahkan $namaIdentitas ke dalam kategori ${widget.namaKategori}',
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

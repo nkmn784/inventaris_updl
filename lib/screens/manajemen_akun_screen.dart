@@ -101,58 +101,60 @@ class _ManajemenAkunScreenState extends State<ManajemenAkunScreen> {
                           });
                         },
                       ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Hak Akses Khusus:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
+                      if (selectedRole != 'Admin') ...[
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Hak Akses Khusus:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
                         ),
-                      ),
-                      CheckboxListTile(
-                        title: const Text(
-                          'Tambah Barang Baru',
-                          style: TextStyle(fontSize: 14),
+                        CheckboxListTile(
+                          title: const Text(
+                            'Tambah Barang Baru',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          value: permissions['can_add_item'],
+                          dense: true,
+                          onChanged: (val) => setDialogState(
+                            () => permissions['can_add_item'] = val!,
+                          ),
                         ),
-                        value: permissions['can_add_item'],
-                        dense: true,
-                        onChanged: (val) => setDialogState(
-                          () => permissions['can_add_item'] = val!,
+                        CheckboxListTile(
+                          title: const Text(
+                            'Edit Data Barang',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          value: permissions['can_edit_item'],
+                          dense: true,
+                          onChanged: (val) => setDialogState(
+                            () => permissions['can_edit_item'] = val!,
+                          ),
                         ),
-                      ),
-                      CheckboxListTile(
-                        title: const Text(
-                          'Edit Data Barang',
-                          style: TextStyle(fontSize: 14),
+                        CheckboxListTile(
+                          title: const Text(
+                            'Hapus Data Barang',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          value: permissions['can_delete_item'],
+                          dense: true,
+                          onChanged: (val) => setDialogState(
+                            () => permissions['can_delete_item'] = val!,
+                          ),
                         ),
-                        value: permissions['can_edit_item'],
-                        dense: true,
-                        onChanged: (val) => setDialogState(
-                          () => permissions['can_edit_item'] = val!,
+                        CheckboxListTile(
+                          title: const Text(
+                            'Lakukan Inspeksi (Checklist)',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          value: permissions['can_inspect'],
+                          dense: true,
+                          onChanged: (val) => setDialogState(
+                            () => permissions['can_inspect'] = val!,
+                          ),
                         ),
-                      ),
-                      CheckboxListTile(
-                        title: const Text(
-                          'Hapus Data Barang',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                        value: permissions['can_delete_item'],
-                        dense: true,
-                        onChanged: (val) => setDialogState(
-                          () => permissions['can_delete_item'] = val!,
-                        ),
-                      ),
-                      CheckboxListTile(
-                        title: const Text(
-                          'Lakukan Inspeksi (Checklist)',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                        value: permissions['can_inspect'],
-                        dense: true,
-                        onChanged: (val) => setDialogState(
-                          () => permissions['can_inspect'] = val!,
-                        ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -265,6 +267,18 @@ class _ManajemenAkunScreenState extends State<ManajemenAkunScreen> {
   }
 
   void _hapusAkun(String uid) {
+    String currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid == currentUid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Akses Ditolak: Anda tidak bisa menghapus akun Anda sendiri!',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return; // Hentikan fungsi sampai di sini
+    }
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -281,19 +295,209 @@ class _ManajemenAkunScreenState extends State<ManajemenAkunScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(ctx);
-              await _firestore.collection('Users').doc(uid).delete();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Profil akun dihapus dari database'),
-                  ),
-                );
+              try {
+                await _firestore.collection('Users').doc(uid).delete();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Profil akun dihapus dari database'),
+                      backgroundColor:
+                          Colors.green, // Tambahkan warna agar lebih jelas
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Gagal menghapus akun: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
             child: const Text('Hapus', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
+    );
+  }
+
+  void _showEditPermissionsDialog(String uid, Map<String, dynamic> userData) {
+    String selectedRole = userData['role'] ?? 'Petugas Lapangan';
+    Map<String, dynamic> currentPerms = userData['permissions'] ?? {};
+
+    // Tarik izin lama dari database
+    Map<String, bool> permissions = {
+      'can_add_item': currentPerms['can_add_item'] ?? false,
+      'can_edit_item': currentPerms['can_edit_item'] ?? false,
+      'can_delete_item': currentPerms['can_delete_item'] ?? false,
+      'can_inspect': currentPerms['can_inspect'] ?? false,
+    };
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text(
+                'Atur Ulang Perizinan',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Akun: ${userData['nama']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedRole,
+                      decoration: const InputDecoration(
+                        labelText: 'Peran (Role)',
+                        prefixIcon: Icon(Icons.admin_panel_settings),
+                      ),
+                      items: ['Admin', 'Petugas Lapangan']
+                          .map(
+                            (role) => DropdownMenuItem(
+                              value: role,
+                              child: Text(role),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        setDialogState(() {
+                          selectedRole = val!;
+                          if (val == 'Admin')
+                            permissions.updateAll((key, value) => true);
+                        });
+                      },
+                    ),
+                    if (selectedRole != 'Admin') ...[
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Hak Akses Khusus:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                      CheckboxListTile(
+                        title: const Text(
+                          'Tambah Barang Baru',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        value: permissions['can_add_item'],
+                        dense: true,
+                        onChanged: (val) => setDialogState(
+                          () => permissions['can_add_item'] = val!,
+                        ),
+                      ),
+                      CheckboxListTile(
+                        title: const Text(
+                          'Edit Data Barang',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        value: permissions['can_edit_item'],
+                        dense: true,
+                        onChanged: (val) => setDialogState(
+                          () => permissions['can_edit_item'] = val!,
+                        ),
+                      ),
+                      CheckboxListTile(
+                        title: const Text(
+                          'Hapus Data Barang',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        value: permissions['can_delete_item'],
+                        dense: true,
+                        onChanged: (val) => setDialogState(
+                          () => permissions['can_delete_item'] = val!,
+                        ),
+                      ),
+                      CheckboxListTile(
+                        title: const Text(
+                          'Lakukan Inspeksi (Checklist)',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        value: permissions['can_inspect'],
+                        dense: true,
+                        onChanged: (val) => setDialogState(
+                          () => permissions['can_inspect'] = val!,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving
+                      ? null
+                      : () => Navigator.pop(dialogContext),
+                  child: const Text(
+                    'Batal',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade800,
+                  ),
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          setDialogState(() => isSaving = true);
+                          try {
+                            await _firestore
+                                .collection('Users')
+                                .doc(uid)
+                                .update({
+                                  'role': selectedRole,
+                                  'permissions': permissions,
+                                });
+                            if (mounted) {
+                              Navigator.pop(dialogContext);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Perizinan diperbarui!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          } finally {
+                            if (mounted) setDialogState(() => isSaving = false);
+                          }
+                        },
+                  child: isSaving
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Simpan',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -364,6 +568,7 @@ class _ManajemenAkunScreenState extends State<ManajemenAkunScreen> {
                   ),
                 ),
                 child: ListTile(
+                  onTap: () => _showEditPermissionsDialog(uid, data),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 8,

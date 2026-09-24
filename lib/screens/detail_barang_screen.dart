@@ -1,17 +1,70 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firestore_service.dart';
 import 'edit_barang_screen.dart';
 
-class DetailBarangScreen extends StatelessWidget {
+class DetailBarangScreen extends StatefulWidget {
   final String documentId;
   final Map<String, dynamic> dataBarang;
+  final bool isAdmin;
 
   const DetailBarangScreen({
     super.key,
     required this.documentId,
     required this.dataBarang,
+    this.isAdmin = false,
   });
+
+  @override
+  State<DetailBarangScreen> createState() => _DetailBarangScreenState();
+}
+
+class _DetailBarangScreenState extends State<DetailBarangScreen> {
+  bool _canEdit = false;
+  bool _canDelete = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cekPerizinanDetail();
+  }
+
+  Future<void> _cekPerizinanDetail() async {
+    if (widget.isAdmin) {
+      setState(() {
+        _canEdit = true;
+        _canDelete = true;
+      });
+      return;
+    }
+    try {
+      var user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        var doc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists) {
+          var data = doc.data()!;
+          if (data['role'] == 'Admin') {
+            setState(() {
+              _canEdit = true;
+              _canDelete = true;
+            });
+          } else {
+            var perms = data['permissions'] ?? {};
+            setState(() {
+              _canEdit = perms['can_edit_item'] ?? false;
+              _canDelete = perms['can_delete_item'] ?? false;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error: $e');
+    }
+  }
 
   String _formatDate(String? isoDate) {
     if (isoDate == null || isoDate.isEmpty) return '-';
@@ -23,7 +76,6 @@ class DetailBarangScreen extends StatelessWidget {
     }
   }
 
-  // Fungsi otomatis memfilter dan menghapus riwayat > 1 tahun (365 hari) dari Firestore
   List<dynamic> _filterDanBersihkanRiwayat(
     String kategori,
     String docId,
@@ -98,12 +150,12 @@ class DetailBarangScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String kategori = dataBarang['kategori'] ?? 'APD';
+    String kategori = widget.dataBarang['kategori'] ?? 'APD';
 
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection(kategori)
-          .doc(documentId)
+          .doc(widget.documentId)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -144,19 +196,19 @@ class DetailBarangScreen extends StatelessWidget {
 
         List<dynamic> riwayatStokApd = _filterDanBersihkanRiwayat(
           kategori,
-          documentId,
+          widget.documentId,
           currentData['riwayat_jumlah_apd'] ?? [],
           'riwayat_jumlah_apd',
         );
         List<dynamic> riwayatStokAtk = _filterDanBersihkanRiwayat(
           kategori,
-          documentId,
+          widget.documentId,
           currentData['riwayat_stok_atk'] ?? [],
           'riwayat_stok_atk',
         );
         List<dynamic> riwayatStokAmenities = _filterDanBersihkanRiwayat(
           kategori,
-          documentId,
+          widget.documentId,
           currentData['riwayat_stok_amenities'] ?? [],
           'riwayat_stok_amenities',
         );
@@ -172,8 +224,6 @@ class DetailBarangScreen extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-
-          // AREA SCROLL: Hanya berisi detail data dan riwayat
           body: SingleChildScrollView(
             padding: const EdgeInsets.only(
               left: 20.0,
@@ -196,82 +246,88 @@ class DetailBarangScreen extends StatelessWidget {
               ],
             ),
           ),
-
-          // AREA FIXED BOTTOM BAR: Tombol akan selalu terlihat di bagian bawah layar
-          bottomNavigationBar: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.blue.shade900.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -4),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => EditBarangScreen(
-                              documentId: documentId,
-                              dataBarang: currentData,
+          bottomNavigationBar: (_canEdit || _canDelete)
+              ? Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.shade900.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, -4),
+                      ),
+                    ],
+                  ),
+                  child: SafeArea(
+                    child: Row(
+                      children: [
+                        if (_canEdit)
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => EditBarangScreen(
+                                      documentId: widget.documentId,
+                                      dataBarang: currentData,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.edit, size: 18),
+                              label: const Text('Edit Data'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.blue.shade700,
+                                side: BorderSide(color: Colors.blue.shade700),
+                                backgroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                              ),
                             ),
                           ),
-                        );
-                      },
-                      icon: const Icon(Icons.edit, size: 18),
-                      label: const Text('Edit Data'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.blue.shade700,
-                        side: BorderSide(color: Colors.blue.shade700),
-                        backgroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
+                        if (_canEdit && _canDelete) const SizedBox(width: 15),
+                        if (_canDelete)
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () =>
+                                  _konfirmasiHapus(context, kategori),
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                                size: 18,
+                              ),
+                              label: const Text(
+                                'Hapus',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                side: const BorderSide(color: Colors.red),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _konfirmasiHapus(context, kategori),
-                      icon: const Icon(
-                        Icons.delete_outline,
-                        color: Colors.red,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Hapus',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.red),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+                )
+              : null,
         );
       },
     );
   }
 
-  // --- WIDGET DETAIL ATK & AMENITIES ---
   Widget _buildDetailAtkAmenities(Map<String, dynamic> data) {
     String catatan = (data['keterangan'] ?? data['catatan'])?.toString() ?? '';
 
@@ -390,7 +446,6 @@ class DetailBarangScreen extends StatelessWidget {
     );
   }
 
-  // --- WIDGET DETAIL APD ---
   Widget _buildDetailApd(Map<String, dynamic> data) {
     String catatan = (data['keterangan'] ?? data['catatan'])?.toString() ?? '';
 
@@ -495,7 +550,6 @@ class DetailBarangScreen extends StatelessWidget {
     );
   }
 
-  // --- WIDGET RIWAYAT PERGERAKAN ---
   Widget _buildRiwayatPergerakanStok(List<dynamic> riwayatStok) {
     if (riwayatStok.isEmpty) return const SizedBox.shrink();
 
@@ -514,8 +568,7 @@ class DetailBarangScreen extends StatelessWidget {
         const SizedBox(height: 12),
         ListView.builder(
           shrinkWrap: true,
-          physics:
-              const NeverScrollableScrollPhysics(), // Mematikan scroll listview agar bisa digulir bersama layar
+          physics: const NeverScrollableScrollPhysics(),
           itemCount: riwayatStok.length,
           itemBuilder: (context, index) {
             final riwayat = riwayatStok[riwayatStok.length - 1 - index];
@@ -659,7 +712,6 @@ class DetailBarangScreen extends StatelessWidget {
     );
   }
 
-  // --- DIALOG KONFIRMASI HAPUS ---
   void _konfirmasiHapus(BuildContext context, String kategori) {
     showDialog(
       context: context,
@@ -686,19 +738,17 @@ class DetailBarangScreen extends StatelessWidget {
             ),
             onPressed: () async {
               Navigator.pop(ctx);
-              await FirestoreService().hapusBarang(kategori, documentId);
+              await FirestoreService().hapusBarang(kategori, widget.documentId);
 
-              // --- SISIPKAN PENCATAT LOG DI SINI ---
               String namaBarang =
-                  dataBarang['peralatan'] ??
-                  dataBarang['nama_barang'] ??
+                  widget.dataBarang['peralatan'] ??
+                  widget.dataBarang['nama_barang'] ??
                   'Barang';
               await FirestoreService().catatLogAktivitas(
                 tipeAksi: 'HAPUS',
                 kategori: kategori,
                 detail: 'Menghapus data $kategori: $namaBarang',
               );
-              // ----------------------------------------
 
               if (context.mounted) {
                 Navigator.pop(context);
