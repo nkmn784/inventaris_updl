@@ -19,6 +19,40 @@ class HistoryLaporanScreen extends StatefulWidget {
 class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
   bool _isExporting = false;
 
+  // Variabel untuk menyimpan kategori dinamis
+  List<String> _dynamicKategoriNames = [];
+  Map<String, List<dynamic>> _dynamicSchemas = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDynamicKategori();
+  }
+
+  // Mengambil daftar kategori dinamis dari Firestore (Blueprint)
+  Future<void> _fetchDynamicKategori() async {
+    try {
+      var snap = await FirebaseFirestore.instance
+          .collection('Master_Kategori')
+          .get();
+      List<String> tempNames = [];
+      for (var doc in snap.docs) {
+        String nama = doc['nama_kategori'] ?? '';
+        if (nama.isNotEmpty) {
+          tempNames.add(nama);
+          _dynamicSchemas[nama] = doc['skema_form'] ?? [];
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _dynamicKategoriNames = tempNames;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetch master kategori: $e');
+    }
+  }
+
   // ==========================================
   // FUNGSI MEMBUKA DIALOG FILTER EXCEL
   // ==========================================
@@ -27,6 +61,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
     int selectedBulan = DateTime.now().month;
     int selectedTahun = DateTime.now().year;
 
+    // Gabungkan kategori statis dan dinamis
     final List<String> listKategori = [
       'APAR',
       'Kotak P3K',
@@ -34,6 +69,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
       'APD',
       'Amenities',
       'Penerangan',
+      ..._dynamicKategoriNames, // Kategori Dinamis Masuk Sini
     ];
 
     final List<Map<String, dynamic>> listBulan = [
@@ -64,7 +100,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               title: const Text(
-                'Download Laporan (Terbaru)',
+                'Download Laporan',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF0F3460),
@@ -96,7 +132,9 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                   ),
                   const SizedBox(height: 15),
 
-                  if (selectedKategori != 'Penerangan') ...[
+                  // Filter waktu disembunyikan jika Penerangan ATAU Kategori Dinamis
+                  if (selectedKategori != 'Penerangan' &&
+                      !_dynamicKategoriNames.contains(selectedKategori)) ...[
                     const Text(
                       'Bulan',
                       style: TextStyle(
@@ -169,12 +207,20 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                   onPressed: () {
                     Navigator.pop(ctx);
 
+                    // 1. ROUTING KATEGORI DINAMIS
+                    if (_dynamicKategoriNames.contains(selectedKategori)) {
+                      _exportDinamisDirect(
+                        selectedKategori,
+                        _dynamicSchemas[selectedKategori]!,
+                      );
+                      return;
+                    }
+
+                    // 2. ROUTING KATEGORI STATIS
                     if (selectedKategori == 'Penerangan') {
                       _exportPeneranganDirect();
                       return;
                     }
-
-                    // ====== LOGIKA ROUTING BARU UNTUK APD, ATK, AMENITIES ======
                     if (selectedKategori == 'APD' ||
                         selectedKategori == 'ATK' ||
                         selectedKategori == 'Amenities') {
@@ -182,7 +228,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                       return;
                     }
 
-                    // 1. Filter awal berdasarkan Kategori & Waktu
+                    // Logika APAR & Kotak P3K
                     List<QueryDocumentSnapshot> filteredDocs = allDocs.where((
                       doc,
                     ) {
@@ -193,9 +239,8 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                           .toLowerCase();
 
                       DateTime? tgl;
-                      if (data['tanggal'] != null) {
+                      if (data['tanggal'] != null)
                         tgl = (data['tanggal'] as Timestamp).toDate();
-                      }
 
                       String keyword = selectedKategori.toLowerCase();
                       if (selectedKategori == 'Kotak P3K') keyword = 'p3k';
@@ -203,35 +248,27 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                       bool matchKat =
                           namaBarang.contains(keyword) ||
                           kategoriDoc.contains(keyword);
-
-                      bool matchBul = true;
-                      if (selectedBulan != 0 && tgl != null) {
-                        matchBul = tgl.month == selectedBulan;
-                      }
-
-                      bool matchTah = true;
-                      if (selectedTahun != 0 && tgl != null) {
-                        matchTah = tgl.year == selectedTahun;
-                      }
+                      bool matchBul = (selectedBulan == 0)
+                          ? true
+                          : (tgl != null && tgl.month == selectedBulan);
+                      bool matchTah = (selectedTahun == 0)
+                          ? true
+                          : (tgl != null && tgl.year == selectedTahun);
 
                       return matchKat && matchBul && matchTah;
                     }).toList();
 
-                    // 2. LOGIKA HANYA AMBIL INSPEKSI TERBARU PER UNIT
                     Map<String, QueryDocumentSnapshot> latestDocsMap = {};
                     for (var doc in filteredDocs) {
                       var data = doc.data() as Map<String, dynamic>;
-
                       String identifier =
                           data['docIdBarang']?.toString() ??
                           data['id_barang']?.toString() ??
                           data['nama_barang']?.toString() ??
                           doc.id;
-
-                      DateTime? currentTgl;
-                      if (data['tanggal'] != null) {
-                        currentTgl = (data['tanggal'] as Timestamp).toDate();
-                      }
+                      DateTime? currentTgl = data['tanggal'] != null
+                          ? (data['tanggal'] as Timestamp).toDate()
+                          : null;
 
                       if (!latestDocsMap.containsKey(identifier)) {
                         latestDocsMap[identifier] = doc;
@@ -239,12 +276,9 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                         var existingData =
                             latestDocsMap[identifier]!.data()
                                 as Map<String, dynamic>;
-                        DateTime? existingTgl;
-                        if (existingData['tanggal'] != null) {
-                          existingTgl = (existingData['tanggal'] as Timestamp)
-                              .toDate();
-                        }
-
+                        DateTime? existingTgl = existingData['tanggal'] != null
+                            ? (existingData['tanggal'] as Timestamp).toDate()
+                            : null;
                         if (currentTgl != null &&
                             (existingTgl == null ||
                                 currentTgl.isAfter(existingTgl))) {
@@ -256,14 +290,11 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                     List<QueryDocumentSnapshot> finalUniqueDocs = latestDocsMap
                         .values
                         .toList();
-
                     if (finalUniqueDocs.isEmpty &&
                         selectedKategori != 'Kotak P3K') {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text(
-                            'Data tidak ditemukan pada periode/kategori ini.',
-                          ),
+                          content: Text('Data tidak ditemukan.'),
                           backgroundColor: Colors.orange,
                         ),
                       );
@@ -294,6 +325,323 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
   }
 
   // ==========================================
+  // FUNGSI MEMANGGIL EXCEL KATEGORI DINAMIS
+  // (DILENGKAPI DETEKTOR MULTI-SHEET ATAU TABEL BIASA)
+  // ==========================================
+  Future<void> _exportDinamisDirect(
+    String namaKategori,
+    List<dynamic> skemaForm,
+  ) async {
+    setState(() => _isExporting = true);
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection(namaKategori)
+          .get();
+
+      if (snapshot.docs.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tidak ada data untuk diekspor.')),
+        );
+        return;
+      }
+
+      var excel = Excel.createExcel();
+      String defaultSheet = excel.getDefaultSheet() ?? 'Sheet1';
+
+      CellStyle titleStyle = CellStyle(bold: true, fontSize: 14);
+      CellStyle headerTabelStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        backgroundColorHex: ExcelColor.fromHexString('#D3D3D3'),
+      );
+
+      // DETEKSI OTOMATIS: APAKAH KATEGORI INI PUNYA GRUP BERULANG?
+      bool hasGrupBerulang = false;
+      for (var field in skemaForm) {
+        if (field['tipe_input'] == 'Grup Berulang (List Aset)') {
+          hasGrupBerulang = true;
+          break;
+        }
+      }
+
+      // ====================================================================
+      // MODE 1: MULTI-SHEET (KHUSUS UNTUK KATEGORI SEPERTI RUANGAN/KAMAR)
+      // ====================================================================
+      if (hasGrupBerulang) {
+        bool isFirstSheet = true;
+        for (var doc in snapshot.docs) {
+          var data = doc.data();
+
+          String rawSheetName = "";
+          String labelIdentitasUtama = "";
+
+          for (var field in skemaForm) {
+            if (field['tipe_input'] == 'Teks Pendek') {
+              labelIdentitasUtama = field['label'];
+              rawSheetName = data[labelIdentitasUtama]?.toString() ?? "";
+              break;
+            }
+          }
+
+          String sheetName = rawSheetName
+              .replaceAll(RegExp(r'[\\/?*[\]]'), '')
+              .trim();
+          if (sheetName.length > 30) sheetName = sheetName.substring(0, 30);
+          if (sheetName.isEmpty) sheetName = "Data_${doc.id.substring(0, 4)}";
+
+          if (isFirstSheet) {
+            excel.rename(defaultSheet, sheetName);
+            isFirstSheet = false;
+          } else {
+            if (excel.tables.containsKey(sheetName))
+              sheetName = "${sheetName}_${doc.id.substring(0, 3)}";
+          }
+
+          Sheet sheet = excel[sheetName];
+
+          String judulLaporan = "LAPORAN ${namaKategori.toUpperCase()}";
+          if (rawSheetName.isNotEmpty)
+            judulLaporan += " ${rawSheetName.toUpperCase()}";
+
+          sheet.cell(CellIndex.indexByString("A1")).value = TextCellValue(
+            judulLaporan,
+          );
+          sheet.cell(CellIndex.indexByString("A1")).cellStyle = titleStyle;
+
+          int currentRow = 2;
+          String? fieldGrup;
+          List<dynamic> subFieldsGrup = [];
+
+          for (var field in skemaForm) {
+            String label = field['label'];
+            String tipe = field['tipe_input'];
+
+            if (tipe == 'Grup Berulang (List Aset)') {
+              fieldGrup = label;
+              subFieldsGrup = field['sub_form'] ?? [];
+            } else if (tipe != 'Foto / Kamera' &&
+                label != labelIdentitasUtama) {
+              sheet
+                  .cell(
+                    CellIndex.indexByColumnRow(
+                      columnIndex: 0,
+                      rowIndex: currentRow,
+                    ),
+                  )
+                  .value = TextCellValue(
+                label,
+              );
+              sheet
+                  .cell(
+                    CellIndex.indexByColumnRow(
+                      columnIndex: 1,
+                      rowIndex: currentRow,
+                    ),
+                  )
+                  .value = TextCellValue(
+                ": ${data[label] ?? '-'}",
+              );
+              currentRow++;
+            }
+          }
+
+          if (currentRow > 2)
+            currentRow++;
+          else
+            currentRow = 3;
+
+          sheet
+              .cell(
+                CellIndex.indexByColumnRow(
+                  columnIndex: 0,
+                  rowIndex: currentRow,
+                ),
+              )
+              .value = TextCellValue(
+            "NO",
+          );
+          sheet
+                  .cell(
+                    CellIndex.indexByColumnRow(
+                      columnIndex: 0,
+                      rowIndex: currentRow,
+                    ),
+                  )
+                  .cellStyle =
+              headerTabelStyle;
+
+          for (int i = 0; i < subFieldsGrup.length; i++) {
+            var cell = sheet.cell(
+              CellIndex.indexByColumnRow(
+                columnIndex: i + 1,
+                rowIndex: currentRow,
+              ),
+            );
+            cell.value = TextCellValue(
+              subFieldsGrup[i].toString().toUpperCase(),
+            );
+            cell.cellStyle = headerTabelStyle;
+          }
+          currentRow++;
+
+          if (fieldGrup != null && data[fieldGrup] is List) {
+            List<dynamic> listAset = data[fieldGrup];
+            for (int i = 0; i < listAset.length; i++) {
+              var item = listAset[i];
+              sheet
+                  .cell(
+                    CellIndex.indexByColumnRow(
+                      columnIndex: 0,
+                      rowIndex: currentRow,
+                    ),
+                  )
+                  .value = TextCellValue(
+                (i + 1).toString(),
+              );
+              if (item is Map) {
+                for (int j = 0; j < subFieldsGrup.length; j++) {
+                  String val =
+                      item[subFieldsGrup[j].toString()]?.toString() ?? '-';
+                  sheet
+                      .cell(
+                        CellIndex.indexByColumnRow(
+                          columnIndex: j + 1,
+                          rowIndex: currentRow,
+                        ),
+                      )
+                      .value = TextCellValue(
+                    val,
+                  );
+                }
+              }
+              currentRow++;
+            }
+          }
+        }
+      }
+      // ====================================================================
+      // MODE 2: TABULAR KLASIK (UNTUK KATEGORI BIASA SEPERTI AC, MOBIL, DLL)
+      // ====================================================================
+      else {
+        excel.rename(defaultSheet, namaKategori);
+        Sheet sheet = excel[namaKategori];
+
+        // 1. Buat Judul
+        sheet.cell(CellIndex.indexByString("A1")).value = TextCellValue(
+          "LAPORAN ${namaKategori.toUpperCase()}",
+        );
+        sheet.cell(CellIndex.indexByString("A1")).cellStyle = titleStyle;
+
+        // 2. Buat Header Menyamping
+        List<String> headers = ['NO', 'TANGGAL INPUT'];
+        for (var field in skemaForm) {
+          if (field['tipe_input'] != 'Foto / Kamera') {
+            headers.add(field['label'].toString().toUpperCase());
+          }
+        }
+
+        for (int i = 0; i < headers.length; i++) {
+          var cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 2),
+          );
+          cell.value = TextCellValue(headers[i]);
+          cell.cellStyle = headerTabelStyle;
+        }
+
+        // 3. Isi Data Berbaris ke Bawah
+        int rowIndex = 3;
+        int nomorUrut = 1;
+        for (var doc in snapshot.docs) {
+          var data = doc.data();
+
+          List<String> rowData = [
+            nomorUrut.toString(),
+            data['updated_at'] != null
+                ? data['updated_at'].toString().split('T')[0]
+                : '-',
+          ];
+
+          for (var field in skemaForm) {
+            if (field['tipe_input'] != 'Foto / Kamera') {
+              String label = field['label'];
+              rowData.add(data[label]?.toString() ?? '-');
+            }
+          }
+
+          for (int i = 0; i < rowData.length; i++) {
+            var cell = sheet.cell(
+              CellIndex.indexByColumnRow(columnIndex: i, rowIndex: rowIndex),
+            );
+            cell.value = TextCellValue(rowData[i]);
+          }
+          rowIndex++;
+          nomorUrut++;
+        }
+      }
+
+      // ==========================================
+      // PROSES PENYIMPANAN FILE
+      // ==========================================
+      String fileNameKategori = namaKategori.replaceAll(" ", "_");
+      String outputFileName =
+          'Laporan_${fileNameKategori}_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+      List<int>? fileBytes = excel.encode();
+
+      if (fileBytes != null) {
+        if (kIsWeb) {
+          final blob = html.Blob(
+            [fileBytes],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          );
+          final url = html.Url.createObjectUrlFromBlob(blob);
+          final anchor = html.document.createElement('a') as html.AnchorElement
+            ..href = url
+            ..style.display = 'none'
+            ..download = outputFileName;
+          html.document.body!.children.add(anchor);
+          anchor.click();
+          html.document.body!.children.remove(anchor);
+          html.Url.revokeObjectUrl(url);
+
+          if (mounted)
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Laporan Excel berhasil diunduh!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+        } else {
+          Directory tempDir = await getTemporaryDirectory();
+          String outputPath = '${tempDir.path}/$outputFileName';
+          File file = File(outputPath);
+          await file.writeAsBytes(fileBytes);
+          if (mounted)
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Berhasil! Silakan pilih aplikasi penyimpan.'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          await Share.shareXFiles([
+            XFile(outputPath),
+          ], text: 'Laporan $namaKategori');
+        }
+      }
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal export: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  // ==========================================
   // FUNGSI MEMANGGIL EXCEL APD, ATK, AMENITIES
   // ==========================================
   Future<void> _exportApdAtkAmenitiesDirect(String kategori) async {
@@ -317,31 +665,28 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
       List<QueryDocumentSnapshot> docs = snapshot.docs;
 
       if (docs.isEmpty) {
-        if (mounted) {
+        if (mounted)
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Belum ada data titik penerangan sama sekali.'),
+              content: Text('Belum ada data titik penerangan.'),
               backgroundColor: Colors.orange,
             ),
           );
-        }
         setState(() => _isExporting = false);
         return;
       }
-
       _exportToExcel(docs, 'Penerangan');
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
-      }
       setState(() => _isExporting = false);
     }
   }
 
   // ==========================================
-  // FUNGSI MEMBUAT FILE EXCEL
+  // FUNGSI MEMBUAT FILE EXCEL APAR & P3K
   // ==========================================
   Future<void> _exportToExcel(
     List<QueryDocumentSnapshot> docs,
@@ -350,9 +695,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
     int tahun = 0,
   }) async {
     setState(() => _isExporting = true);
-
     try {
-      // 3. AMBIL DATA MASTER UNTUK MENGISI KOLOM KOSONG
       Map<String, Map<String, dynamic>> masterData = {};
       if (kategori != 'Penerangan') {
         try {
@@ -386,7 +729,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
         backgroundColorHex: ExcelColor.fromHexString('#D3D3D3'),
         fontColorHex: ExcelColor.fromHexString('#000000'),
       );
-
       String tanggalUnduhStr = DateFormat('dd/MM/yyyy').format(DateTime.now());
 
       List<String> namaBulan = [
@@ -405,24 +747,19 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
         'DESEMBER',
       ];
       String periodeText = '';
-      if (bulan != 0 && tahun != 0) {
+      if (bulan != 0 && tahun != 0)
         periodeText = 'BULAN ${namaBulan[bulan]} $tahun';
-      } else if (bulan != 0) {
+      else if (bulan != 0)
         periodeText = 'BULAN ${namaBulan[bulan]}';
-      } else if (tahun != 0) {
+      else if (tahun != 0)
         periodeText = 'TAHUN $tahun';
-      } else {
+      else
         periodeText = 'KESELURUHAN DATA';
-      }
 
-      // ==========================================================
-      // KONDISI 1: KOTAK P3K
-      // ==========================================================
+      // ... KODE KONDISI P3K ...
       if (kategori == 'Kotak P3K') {
-        // --- SHEET 1: HASIL INSPEKSI ---
         Sheet sheet1 = excel['Hasil Inspeksi'];
         excel.setDefaultSheet('Hasil Inspeksi');
-
         sheet1.cell(CellIndex.indexByString("A1")).value = TextCellValue(
           'IDENTIFIKASI KEBUTUHAN KOTAK P3K',
         );
@@ -435,7 +772,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           periodeText,
         );
         sheet1.cell(CellIndex.indexByString("A3")).cellStyle = titleStyle;
-
         sheet1.cell(CellIndex.indexByString("A4")).value = TextCellValue(
           'Tanggal Unduh',
         );
@@ -477,7 +813,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           'Kadaluarsa Alkohol 70%',
           'Keterangan',
         ];
-
         for (int i = 0; i < p3kHeaders.length; i++) {
           var cell = sheet1.cell(
             CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 6),
@@ -511,7 +846,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           'Buku Panduan P3K',
           'Buku Catatan & Daftar Isi',
         ];
-
         final Map<String, List<int>> standarP3KMap = {
           'Kasa Steril': [20, 40, 40],
           'Perban (Lebar 5 cm)': [2, 4, 6],
@@ -536,7 +870,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           'Buku Catatan & Daftar Isi': [1, 1, 1],
         };
 
-        // --- MENGURUTKAN KOTAK P3K BERDASARKAN NOMOR ---
         List<Map<String, dynamic>> p3kList = masterData.values.toList();
         p3kList.sort((a, b) {
           var specA = a['spesifikasi'] ?? {};
@@ -614,7 +947,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
             int curDef = defisit[itemName] ?? 0;
             int curStock = maxStock - curDef;
             if (curStock < 0) curStock = 0;
-
             sheet1
                 .cell(
                   CellIndex.indexByColumnRow(
@@ -629,10 +961,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           Map<String, dynamic> expCairan = Map<String, dynamic>.from(
             mData['kadaluarsa_cairan'] ?? {},
           );
-          String expAquades = expCairan['Aquades']?.toString() ?? '-';
-          String expPovidone = expCairan['Povidone Iodine']?.toString() ?? '-';
-          String expAlkohol = expCairan['Alkohol 70%']?.toString() ?? '-';
-
           sheet1
               .cell(
                 CellIndex.indexByColumnRow(
@@ -641,7 +969,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 ),
               )
               .value = TextCellValue(
-            expAquades,
+            expCairan['Aquades']?.toString() ?? '-',
           );
           sheet1
               .cell(
@@ -651,7 +979,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 ),
               )
               .value = TextCellValue(
-            expPovidone,
+            expCairan['Povidone Iodine']?.toString() ?? '-',
           );
           sheet1
               .cell(
@@ -661,7 +989,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 ),
               )
               .value = TextCellValue(
-            expAlkohol,
+            expCairan['Alkohol 70%']?.toString() ?? '-',
           );
           String ket =
               mData['keterangan']?.toString() ??
@@ -678,11 +1006,9 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
               .value = TextCellValue(
             ket,
           );
-
           rIdx++;
         }
 
-        // --- SHEET 2: BUKU CATATAN ---
         Sheet sheet2 = excel['Buku Catatan'];
         sheet2.cell(CellIndex.indexByString("A1")).value = TextCellValue(
           'RIWAYAT / BUKU CATATAN PENGGUNAAN KOTAK P3K',
@@ -704,7 +1030,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           'Keperluan / Keluhan',
           'Tanggal & Waktu',
         ];
-
         for (int i = 0; i < catHeaders.length; i++) {
           sheet2
               .cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 4))
@@ -725,7 +1050,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           int cNo = 1;
           for (var uDoc in usageSnap.docs) {
             var uData = uDoc.data() as Map<String, dynamic>;
-
             String tglStr = '-';
             var rawTgl =
                 uData['tanggal'] ??
@@ -736,7 +1060,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 uData['tanggal_penggunaan'] ??
                 uData['timestamp'] ??
                 uData['tgl'];
-
             if (rawTgl == null) {
               for (var value in uData.values) {
                 if (value is Timestamp) {
@@ -745,21 +1068,18 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 }
               }
             }
-
             if (rawTgl != null) {
-              if (rawTgl is Timestamp) {
+              if (rawTgl is Timestamp)
                 tglStr = DateFormat('dd/MM/yyyy HH:mm').format(rawTgl.toDate());
-              } else if (rawTgl is String) {
+              else if (rawTgl is String)
                 tglStr = rawTgl;
-              } else if (rawTgl is int) {
+              else if (rawTgl is int)
                 tglStr = DateFormat(
                   'dd/MM/yyyy HH:mm',
                 ).format(DateTime.fromMillisecondsSinceEpoch(rawTgl));
-              } else {
+              else
                 tglStr = rawTgl.toString();
-              }
             }
-
             sheet2
                 .cell(
                   CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: cRow),
@@ -813,7 +1133,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           }
         } catch (_) {}
 
-        // --- SHEET 3: REKAPITULASI ---
         Sheet sheet3 = excel['Rekapitulasi'];
         sheet3.cell(CellIndex.indexByString("A1")).value = TextCellValue(
           'REKAPITULASI ALAT P3K PALING SERING DIPAKAI BULAN INI',
@@ -831,7 +1150,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           'Nama Alat / Item P3K',
           'Total Penggunaan (Bulan Ini)',
         ];
-
         for (int i = 0; i < rekHeaders.length; i++) {
           sheet3
               .cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 4))
@@ -845,10 +1163,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
         }
 
         Map<String, int> usageCount = {};
-        for (var itemName in list21Items) {
-          usageCount[itemName] = 0;
-        }
-
+        for (var itemName in list21Items) usageCount[itemName] = 0;
         try {
           QuerySnapshot usageSnap = await FirebaseFirestore.instance
               .collection('buku_catatan_p3k')
@@ -857,15 +1172,12 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
             var uData = uDoc.data() as Map<String, dynamic>;
             String item = uData['item_dipakai'] ?? '';
             int qty = int.tryParse(uData['jumlah'].toString()) ?? 1;
-            if (usageCount.containsKey(item)) {
+            if (usageCount.containsKey(item))
               usageCount[item] = usageCount[item]! + qty;
-            }
           }
         } catch (_) {}
-
         var sortedUsage = usageCount.entries.toList()
           ..sort((a, b) => b.value.compareTo(a.value));
-
         int rRow = 4;
         int rank = 1;
         for (var entry in sortedUsage) {
@@ -887,9 +1199,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           rRow++;
         }
       }
-      // ==========================================================
-      // KONDISI 2: PENERANGAN
-      // ==========================================================
+      // ... KONDISI PENERANGAN ...
       else if (kategori == 'Penerangan' && sheetObject != null) {
         sheetObject.cell(CellIndex.indexByString("A1")).value = TextCellValue(
           'REKAPITULASI LAPORAN PENERANGAN',
@@ -930,7 +1240,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           cell.cellStyle = headerStyle;
         }
 
-        // --- MENGURUTKAN PENERANGAN BERDASARKAN GEDUNG/RUANGAN ---
         docs.sort((a, b) {
           String namaA =
               ((a.data() as Map<String, dynamic>)['gedung_ruangan'] ?? '')
@@ -943,7 +1252,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           return namaA.compareTo(namaB);
         });
 
-        // --- FUNGSI MERAPIKAN TEKS MENJADI TITLE CASE ---
         String formatTeks(String? teks) {
           if (teks == null || teks.trim().isEmpty || teks == '-') return '-';
           return teks
@@ -961,7 +1269,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           var data = doc.data() as Map<String, dynamic>;
           String koordinat =
               '${data['latitude'] ?? '-'}, ${data['longitude'] ?? '-'}';
-
           sheetObject
               .cell(
                 CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex),
@@ -988,8 +1295,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex),
               )
               .value = TextCellValue(
-            (data['kode_unik']?.toString() ?? '-')
-                .toUpperCase(), // Kode unik selalu kapital penuh
+            (data['kode_unik']?.toString() ?? '-').toUpperCase(),
           );
           sheetObject
               .cell(
@@ -1036,9 +1342,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           rowIndex++;
         }
       }
-      // ==========================================================
-      // KONDISI 3: APAR
-      // ==========================================================
+      // ... KONDISI APAR ...
       else if (kategori == 'APAR' && sheetObject != null) {
         sheetObject.cell(CellIndex.indexByString("A1")).value = TextCellValue(
           'LAPORAN INSPEKSI APAR TERBARU',
@@ -1085,7 +1389,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           cell.cellStyle = headerStyle;
         }
 
-        // --- MENGURUTKAN APAR BERDASARKAN NOMOR ---
         docs.sort((a, b) {
           int getAparNo(QueryDocumentSnapshot d) {
             var data = d.data() as Map<String, dynamic>;
@@ -1093,10 +1396,9 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 data['docIdBarang']?.toString() ??
                 data['id_barang']?.toString() ??
                 '';
-
             if (docIdBarang.isNotEmpty && masterData.containsKey(docIdBarang)) {
               var spec = masterData[docIdBarang]!['spesifikasi'];
-              if (spec is Map && spec['No APAR'] != null) {
+              if (spec is Map && spec['No APAR'] != null)
                 return int.tryParse(
                       spec['No APAR'].toString().replaceAll(
                         RegExp(r'[^0-9]'),
@@ -1104,9 +1406,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                       ),
                     ) ??
                     0;
-              }
             }
-
             String nama = data['nama_barang']?.toString() ?? '';
             return int.tryParse(nama.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
           }
@@ -1118,13 +1418,11 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
         int no = 1;
         for (var doc in docs) {
           var data = doc.data() as Map<String, dynamic>;
-
           String docIdBarang =
               data['docIdBarang']?.toString() ??
               data['id_barang']?.toString() ??
               '';
           String namaBarangRiwayat = data['nama_barang']?.toString() ?? '';
-
           String extractedNoApar = namaBarangRiwayat.replaceAll(
             RegExp(r'[^0-9]'),
             '',
@@ -1132,7 +1430,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           int? noAparRiwayatInt = int.tryParse(extractedNoApar);
 
           Map<String, dynamic> master = {};
-
           if (docIdBarang.isNotEmpty && masterData.containsKey(docIdBarang)) {
             master = masterData[docIdBarang]!;
           }
@@ -1159,7 +1456,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           var spec = master['spesifikasi'] is Map
               ? master['spesifikasi'] as Map<String, dynamic>
               : {};
-
           String tanggalStr = '-';
           if (data['tanggal'] != null) {
             DateTime tgl = (data['tanggal'] as Timestamp).toDate();
@@ -1172,10 +1468,8 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
               master['nama_barang']?.toString() ??
               data['nama_barang']?.toString() ??
               'Powder';
-
           String noApar = spec['No APAR']?.toString() ?? extractedNoApar;
           if (noApar.isEmpty) noApar = '-';
-
           String berat =
               spec['Berat']?.toString() ?? data['berat']?.toString() ?? '-';
           String petugas = data['nama_pemeriksa']?.toString() ?? '-';
@@ -1183,24 +1477,20 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
               master['tanggal_kadaluarsa']?.toString() ??
               data['tgl_kadaluarsa']?.toString() ??
               '-';
-
           String koordinat = master['koordinat']?.toString() ?? '-';
           if (koordinat == '-' &&
               data['latitude'] != null &&
-              data['longitude'] != null) {
+              data['longitude'] != null)
             koordinat = '${data['latitude']}, ${data['longitude']}';
-          }
-
           String keterangan = data['catatan']?.toString() ?? '-';
           if (keterangan.trim().isEmpty) keterangan = '-';
 
-          String label = '-';
-          String tekanan = '-';
-          String safetyPin = '-';
-          String handle = '-';
-          String selang = '-';
+          String label = '-',
+              tekanan = '-',
+              safetyPin = '-',
+              handle = '-',
+              selang = '-';
           bool isGood = true;
-
           if (data['hasil_checklist'] != null) {
             Map<String, dynamic> cl = Map<String, dynamic>.from(
               data['hasil_checklist'],
@@ -1209,7 +1499,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
               String k = key.toLowerCase();
               String v = (value == true) ? 'v' : 'x';
               if (value == false) isGood = false;
-
               if (k.contains('label'))
                 label = v;
               else if (k.contains('tekanan'))
@@ -1222,7 +1511,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 selang = v;
             });
           }
-
           String status = isGood ? 'GOOD' : 'RUSAK';
 
           sheetObject
@@ -1337,19 +1625,15 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
               .value = TextCellValue(
             keterangan,
           );
-
           rowIndex++;
         }
       }
 
-      if (excel.tables.containsKey('TempSheet')) {
-        excel.delete('TempSheet');
-      }
+      if (excel.tables.containsKey('TempSheet')) excel.delete('TempSheet');
 
       String fileNameKategori = kategori.replaceAll(" ", "_");
       String outputFileName =
           'Laporan_${fileNameKategori}_${DateTime.now().millisecondsSinceEpoch}.xlsx';
-
       List<int>? fileBytes = excel.encode();
 
       if (fileBytes != null) {
@@ -1368,21 +1652,19 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
           html.document.body!.children.remove(anchor);
           html.Url.revokeObjectUrl(url);
 
-          if (mounted) {
+          if (mounted)
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('File Excel berhasil didownload di Browser!'),
                 backgroundColor: Colors.green,
               ),
             );
-          }
         } else {
           Directory tempDir = await getTemporaryDirectory();
           String outputPath = '${tempDir.path}/$outputFileName';
           File file = File(outputPath);
-
           await file.writeAsBytes(fileBytes);
-          if (mounted) {
+          if (mounted)
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text(
@@ -1391,18 +1673,16 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 backgroundColor: Colors.green,
               ),
             );
-          }
           await Share.shareXFiles([
             XFile(outputPath),
           ], text: 'Laporan Inventaris ($kategori)');
         }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red),
         );
-      }
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
@@ -1417,7 +1697,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
       DateTime tgl = (data['tanggal'] as Timestamp).toDate();
       tanggalStr = DateFormat('dd MMM yyyy HH:mm').format(tgl);
     }
-
     Map<String, dynamic> cl = data['hasil_checklist'] != null
         ? Map<String, dynamic>.from(data['hasil_checklist'])
         : {};
@@ -1450,7 +1729,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-
               ...cl.entries.map((entry) {
                 String valStr = entry.value.toString();
                 Color valColor = Colors.black87;
@@ -1462,9 +1740,8 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                   valStr = 'Rusak';
                   valColor = Colors.red;
                 }
-                if (entry.value is int && (entry.value as int) > 0) {
+                if (entry.value is int && (entry.value as int) > 0)
                   valColor = Colors.red;
-                }
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 6),
@@ -1491,7 +1768,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                   ),
                 );
               }),
-
               const Divider(height: 20, thickness: 1.5),
               const Text(
                 'Catatan Tambahan:',
@@ -1539,28 +1815,21 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
             .orderBy('tanggal', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting)
             return const Center(
               child: CircularProgressIndicator(color: Color(0xFF149C94)),
             );
-          }
 
           List<QueryDocumentSnapshot> allDocs = snapshot.hasData
               ? snapshot.data!.docs
               : [];
-
           Map<String, List<QueryDocumentSnapshot>> groupedDocs = {};
           for (var doc in allDocs) {
             var data = doc.data() as Map<String, dynamic>;
             String kategori = data['kategori'] ?? 'Lainnya';
-
-            if (!groupedDocs.containsKey(kategori)) {
-              groupedDocs[kategori] = [];
-            }
-
-            if (groupedDocs[kategori]!.length < 5) {
+            if (!groupedDocs.containsKey(kategori)) groupedDocs[kategori] = [];
+            if (groupedDocs[kategori]!.length < 5)
               groupedDocs[kategori]!.add(doc);
-            }
           }
 
           return Column(
@@ -1630,7 +1899,6 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                                     'dd MMM yyyy • HH:mm',
                                   ).format(tgl);
                                 }
-
                                 return Card(
                                   elevation: 1,
                                   margin: const EdgeInsets.only(bottom: 12),
@@ -1691,6 +1959,7 @@ class _HistoryLaporanScreenState extends State<HistoryLaporanScreen> {
                       ),
               ),
 
+              // TOMBOL DOWNLOAD EXCEL
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
