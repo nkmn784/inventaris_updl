@@ -147,6 +147,12 @@ class _TambahPeneranganScreenState extends State<TambahPeneranganScreen> {
 
       // Menyimpan ke database menggunakan fungsi dari firestore_service.dart
       await FirestoreService().tambahBarang('Penerangan', dataMap);
+      await FirestoreService().catatLogAktivitas(
+        tipeAksi: 'TAMBAH',
+        kategori: 'Penerangan',
+        detail:
+            'Menambahkan titik penerangan baru di ${_gedungCtrl.text.trim()} ($kodeUnik)',
+      );
 
       if (mounted) {
         setState(() => _isLoading = false);

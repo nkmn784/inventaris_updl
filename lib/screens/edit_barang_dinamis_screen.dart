@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../services/cloudinary_service.dart';
+import '../services/firestore_service.dart';
 
 class EditBarangDinamisScreen extends StatefulWidget {
   final String namaKategori;
@@ -236,6 +237,21 @@ class _EditBarangDinamisScreenState extends State<EditBarangDinamisScreen> {
           .collection(widget.namaKategori)
           .doc(widget.documentId)
           .update(dataUpdate);
+
+      // --- TAMBAHKAN PENCATAT LOG INI ---
+      String namaIdentitas = 'Data';
+      if (widget.skemaForm.isNotEmpty) {
+        String labelPertama = widget.skemaForm[0]['label'];
+        namaIdentitas = dataUpdate[labelPertama]?.toString() ?? 'Data';
+      }
+
+      await FirestoreService().catatLogAktivitas(
+        tipeAksi: 'EDIT',
+        kategori: widget.namaKategori,
+        detail:
+            'Memperbarui data $namaIdentitas pada kategori ${widget.namaKategori}',
+      );
+      // ----------------------------------
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

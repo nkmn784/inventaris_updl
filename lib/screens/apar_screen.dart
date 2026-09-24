@@ -11,26 +11,56 @@ import '../services/firestore_service.dart';
 import '../services/cloudinary_service.dart';
 import 'form_pemeriksaan_screen.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AparScreen extends StatefulWidget {
   final bool isAdmin;
-  const AparScreen({super.key, this.isAdmin = true});
+  const AparScreen({super.key, this.isAdmin = false});
 
   @override
   State<AparScreen> createState() => _AparScreenState();
 }
 
-late Stream<QuerySnapshot> _aparStream;
-
 class _AparScreenState extends State<AparScreen> {
   String _searchQuery = '';
   late Stream<QuerySnapshot> _aparStream;
 
-  // ✔️ TAMBAHKAN INI: Inisialisasi stream saat halaman pertama kali dibuka
+  bool _canAdd = false;
+
   @override
   void initState() {
     super.initState();
     _aparStream = FirestoreService().getBarangByKategori('APAR');
+    _cekPerizinan();
+  }
+
+  Future<void> _cekPerizinan() async {
+    if (widget.isAdmin) {
+      setState(() => _canAdd = true);
+      return;
+    }
+    try {
+      var user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        var doc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists) {
+          var data = doc.data()!;
+          if (data['role'] == 'Admin') {
+            setState(() => _canAdd = true);
+          } else {
+            var perms = data['permissions'] ?? {};
+            setState(() {
+              _canAdd = perms['can_add_item'] ?? false;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error cek perizinan: $e');
+    }
   }
 
   Color _getStatusColor(String status) {
@@ -771,7 +801,7 @@ class _AparScreenState extends State<AparScreen> {
           ),
         ],
       ),
-      floatingActionButton: widget.isAdmin
+      floatingActionButton: _canAdd
           ? FloatingActionButton(
               backgroundColor: Colors.blue.shade800,
               onPressed: () => _showAddAparDialog(context),
@@ -806,12 +836,55 @@ class _DetailAparScreenState extends State<DetailAparScreen> {
 
   late Stream<QuerySnapshot> _aparStream;
 
+  bool _canEdit = false;
+  bool _canDelete = false;
+  bool _canInspect = false;
   // 2. MASUKKAN PEMANGGILAN FIREBASE KE DALAM INIT STATE
   @override
   void initState() {
     super.initState();
     currentData = Map.from(widget.dataApar);
     _aparStream = FirestoreService().getBarangByKategori('APAR');
+    _cekPerizinanDetail();
+  }
+
+  Future<void> _cekPerizinanDetail() async {
+    if (widget.isAdmin) {
+      setState(() {
+        _canEdit = true;
+        _canDelete = true;
+        _canInspect = true;
+      });
+      return;
+    }
+    try {
+      var user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        var doc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists) {
+          var data = doc.data()!;
+          if (data['role'] == 'Admin') {
+            setState(() {
+              _canEdit = true;
+              _canDelete = true;
+              _canInspect = true;
+            });
+          } else {
+            var perms = data['permissions'] ?? {};
+            setState(() {
+              _canEdit = perms['can_edit_item'] ?? false;
+              _canDelete = perms['can_delete_item'] ?? false;
+              _canInspect = perms['can_inspect'] ?? false;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error: $e');
+    }
   }
 
   Future<void> _openGoogleMaps(String koordinat) async {
@@ -1407,7 +1480,7 @@ class _DetailAparScreenState extends State<DetailAparScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      bottomNavigationBar: widget.isAdmin
+      bottomNavigationBar: (_canEdit || _canDelete || _canInspect)
           ? Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1425,86 +1498,96 @@ class _DetailAparScreenState extends State<DetailAparScreen> {
                   mainAxisSize:
                       MainAxisSize.min, // Agar tingginya menyesuaikan isi
                   children: [
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF149C94),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(Icons.fact_check, color: Colors.white),
-                        label: const Text(
-                          'Lakukan Inspeksi Rutin',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => FormPemeriksaanScreen(
-                                docIdBarang: widget.docId,
-                                namaBarang: 'APAR $noApar',
-                                lokasi: lokasi,
-                                noApar: noApar,
-                                checklistItems: const [
-                                  'Label Pengisian Terbaca?',
-                                  'Tekanan Normal (Indikator Hijau)?',
-                                  'Safety Pin Terpasang & Segel Utuh?',
-                                  'Handle / Tuas Normal?',
-                                  'Selang & Nozzle Tidak Retak/Mampet?',
-                                ],
-                              ),
+                    if (_canInspect)
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF149C94),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          );
-                        },
+                          ),
+                          icon: const Icon(
+                            Icons.fact_check,
+                            color: Colors.white,
+                          ),
+                          label: const Text(
+                            'Lakukan Inspeksi Rutin',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => FormPemeriksaanScreen(
+                                  docIdBarang: widget.docId,
+                                  namaBarang: 'APAR $noApar',
+                                  lokasi: lokasi,
+                                  noApar: noApar,
+                                  checklistItems: const [
+                                    'Label Pengisian Terbaca?',
+                                    'Tekanan Normal (Indikator Hijau)?',
+                                    'Safety Pin Terpasang & Segel Utuh?',
+                                    'Handle / Tuas Normal?',
+                                    'Selang & Nozzle Tidak Retak/Mampet?',
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _showEditAparDialog,
-                            icon: const Icon(Icons.edit, size: 18),
-                            label: const Text('Edit Data'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.blue.shade700,
-                              side: BorderSide(color: Colors.blue.shade700),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                        if (_canEdit)
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _showEditAparDialog,
+                              icon: const Icon(Icons.edit, size: 18),
+                              label: const Text('Edit Data'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.blue.shade700,
+                                side: BorderSide(color: Colors.blue.shade700),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _hapusApar,
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              color: Colors.red,
-                              size: 18,
-                            ),
-                            label: const Text(
-                              'Hapus',
-                              style: TextStyle(color: Colors.red),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Colors.red),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                        if (_canEdit && _canDelete) const SizedBox(width: 10),
+                        if (_canDelete)
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _hapusApar,
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                                size: 18,
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              label: const Text(
+                                'Hapus',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.red),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ],

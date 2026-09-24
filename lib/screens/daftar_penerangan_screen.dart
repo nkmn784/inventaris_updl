@@ -4,10 +4,11 @@ import 'detail_penerangan_screen.dart';
 import '../models/penerangan_model.dart';
 import '../services/firestore_service.dart';
 import 'tambah_penerangan_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class DaftarPeneranganScreen extends StatefulWidget {
   final bool isAdmin;
-  const DaftarPeneranganScreen({super.key, this.isAdmin = true});
+  const DaftarPeneranganScreen({super.key, this.isAdmin = false});
 
   @override
   State<DaftarPeneranganScreen> createState() => _DaftarPeneranganScreenState();
@@ -16,15 +17,41 @@ class DaftarPeneranganScreen extends StatefulWidget {
 class _DaftarPeneranganScreenState extends State<DaftarPeneranganScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   String _searchQuery = '';
-
-  // ✔️ 1. Deklarasikan variabel stream
   late Stream<QuerySnapshot> _peneranganStream;
+  bool _canAdd = false;
 
-  // ✔️ 2. Inisialisasi stream di dalam initState agar hanya dipanggil 1 kali
   @override
   void initState() {
     super.initState();
     _peneranganStream = _firestoreService.getBarangByKategori('Penerangan');
+    _cekPerizinan();
+  }
+
+  Future<void> _cekPerizinan() async {
+    if (widget.isAdmin) {
+      setState(() => _canAdd = true);
+      return;
+    }
+    try {
+      var user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        var doc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists) {
+          var data = doc.data()!;
+          if (data['role'] == 'Admin') {
+            setState(() => _canAdd = true);
+          } else {
+            var perms = data['permissions'] ?? {};
+            setState(() => _canAdd = perms['can_add_item'] ?? false);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error: $e');
+    }
   }
 
   Color _getStatusColor(String? status) {
@@ -228,8 +255,10 @@ class _DaftarPeneranganScreenState extends State<DaftarPeneranganScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    DetailPeneranganScreen(item: item),
+                                builder: (context) => DetailPeneranganScreen(
+                                  item: item,
+                                  isAdmin: widget.isAdmin,
+                                ),
                               ),
                             );
                           },
@@ -355,7 +384,7 @@ class _DaftarPeneranganScreenState extends State<DaftarPeneranganScreen> {
           ),
         ],
       ),
-      floatingActionButton: widget.isAdmin
+      floatingActionButton: _canAdd
           ? FloatingActionButton(
               backgroundColor: Colors.blue.shade800,
               foregroundColor: Colors.white,

@@ -12,10 +12,11 @@ import '../services/firestore_service.dart';
 import '../services/cloudinary_service.dart';
 import 'form_pemeriksaan_screen.dart';
 import 'catatan_penggunaan_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class P3kScreen extends StatefulWidget {
   final bool isAdmin;
-  const P3kScreen({super.key, this.isAdmin = true});
+  const P3kScreen({super.key, this.isAdmin = false});
 
   @override
   State<P3kScreen> createState() => _P3kScreenState();
@@ -23,15 +24,60 @@ class P3kScreen extends StatefulWidget {
 
 class _P3kScreenState extends State<P3kScreen> {
   String _searchQuery = '';
-
-  // ✔️ 1. Deklarasikan variabel stream
   late Stream<QuerySnapshot> _p3kStream;
 
-  // ✔️ 2. Inisialisasi stream di dalam initState agar hanya dipanggil 1 kali
+  bool _canAdd = false;
+  bool _canEdit = false;
+  bool _canDelete = false;
+  bool _canInspect = false;
+
   @override
   void initState() {
     super.initState();
     _p3kStream = FirestoreService().getBarangByKategori('Kotak P3K');
+    _cekPerizinanDetail();
+  }
+
+  Future<void> _cekPerizinanDetail() async {
+    if (widget.isAdmin) {
+      setState(() {
+        _canEdit = true;
+        _canDelete = true;
+        _canInspect = true;
+        _canAdd = true;
+      });
+      return;
+    }
+    try {
+      var user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        var doc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists) {
+          var data = doc.data()!;
+          if (data['role'] == 'Admin') {
+            setState(() {
+              _canEdit = true;
+              _canDelete = true;
+              _canInspect = true;
+              _canAdd = true;
+            });
+          } else {
+            var perms = data['permissions'] ?? {};
+            setState(() {
+              _canEdit = perms['can_edit_item'] ?? false;
+              _canDelete = perms['can_delete_item'] ?? false;
+              _canInspect = perms['can_inspect'] ?? false;
+              _canAdd = perms['can_add_item'] ?? false;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error: $e');
+    }
   }
 
   // --- DIALOG TAMBAH KOTAK P3K ---
@@ -798,7 +844,7 @@ class _P3kScreenState extends State<P3kScreen> {
           ),
         ],
       ),
-      floatingActionButton: widget.isAdmin
+      floatingActionButton: _canAdd
           ? FloatingActionButton(
               backgroundColor: Colors.blue.shade800,
               onPressed: () => _showAddP3kDialog(context),
@@ -829,10 +875,58 @@ class DetailP3kScreen extends StatefulWidget {
 class _DetailP3kScreenState extends State<DetailP3kScreen> {
   late Map<String, dynamic> currentData;
 
+  bool _canEdit = false;
+  bool _canDelete = false;
+  bool _canInspect = false;
+  bool _canAdd = false;
+
   @override
   void initState() {
     super.initState();
     currentData = Map.from(widget.dataP3k);
+    _cekPerizinanDetail();
+  }
+
+  Future<void> _cekPerizinanDetail() async {
+    if (widget.isAdmin) {
+      setState(() {
+        _canEdit = true;
+        _canDelete = true;
+        _canInspect = true;
+        _canAdd = true;
+      });
+      return;
+    }
+    try {
+      var user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        var doc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists) {
+          var data = doc.data()!;
+          if (data['role'] == 'Admin') {
+            setState(() {
+              _canEdit = true;
+              _canDelete = true;
+              _canInspect = true;
+              _canAdd = true;
+            });
+          } else {
+            var perms = data['permissions'] ?? {};
+            setState(() {
+              _canEdit = perms['can_edit_item'] ?? false;
+              _canDelete = perms['can_delete_item'] ?? false;
+              _canInspect = perms['can_inspect'] ?? false;
+              _canAdd = perms['can_add_item'] ?? false;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error: $e');
+    }
   }
 
   Future<void> _openGoogleMaps(String koordinat) async {
@@ -1426,180 +1520,192 @@ class _DetailP3kScreenState extends State<DetailP3kScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, -5), // Bayangan ke atas
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min, // Agar menyesuaikan isi
-            children: [
-              // 1. Tombol Buku Catatan (Selalu Tampil)
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade900,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+      bottomNavigationBar: (_canEdit || _canDelete || _canInspect)
+          ? Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5), // Bayangan ke atas
                   ),
-                  icon: const Icon(Icons.menu_book, color: Colors.white),
-                  label: const Text(
-                    'Buku Catatan Penggunaan',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CatatanPenggunaanScreen(
-                          docIdBarang: widget.docId,
-                          namaKotak: namaBarang,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                ],
               ),
-
-              // 2. Tombol Aksi Admin (Inspeksi, Edit, Hapus)
-              if (widget.isAdmin) ...[
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF149C94),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    icon: const Icon(Icons.fact_check, color: Colors.white),
-                    label: const Text(
-                      'Lakukan Inspeksi Rutin',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    onPressed: () async {
-                      // <-- UBAH MENJADI ASYNC & AMBIL DATA TERBARU
-                      var snapshot = await FirebaseFirestore.instance
-                          .collection('Kotak P3K')
-                          .doc(widget.docId)
-                          .get();
-                      var latestData = snapshot.data() ?? {};
-
-                      Map<String, dynamic> currentDefisit =
-                          Map<String, dynamic>.from(
-                            latestData['defisit_p3k'] ?? {},
-                          );
-                      Map<String, dynamic> currentExpCairan =
-                          Map<String, dynamic>.from(
-                            latestData['kadaluarsa_cairan'] ?? {},
-                          );
-
-                      if (!context.mounted) return;
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => FormPemeriksaanScreen(
-                            docIdBarang: widget.docId,
-                            namaBarang: namaBarang,
-                            lokasi: lokasi,
-                            checklistItems: const [
-                              'Kasa Steril',
-                              'Perban (Lebar 5 cm)',
-                              'Perban (Lebar 10 cm)',
-                              'Plester Lebar 1,25 cm',
-                              'Plester Cepat',
-                              'Kapas 25 gr',
-                              'Kain Segi Tiga (Mitela)',
-                              'Gunting',
-                              'Peniti',
-                              'Sarung Tangan Sekali Pakai',
-                              'Sarung Tangan (Pasangan)',
-                              'Masker',
-                              'Pinset',
-                              'Lampu Senter',
-                              'Gelas Cuci Mata',
-                              'Kantong Plastik Bersih',
-                              'Aquades',
-                              'Povidone Iodine',
-                              'Alkohol 70%',
-                              'Buku Panduan P3K',
-                              'Buku Catatan & Daftar Isi',
-                            ],
-                            initialDefisit: currentDefisit,
-                            initialKadaluarsa: currentExpCairan,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min, // Agar menyesuaikan isi
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _showEditP3kDialog,
-                        icon: const Icon(Icons.edit, size: 18),
-                        label: const Text('Edit'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.blue.shade700,
-                          side: BorderSide(color: Colors.blue.shade700),
+                    // 1. Tombol Buku Catatan (Selalu Tampil)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade900,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _hapusP3k,
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.red,
-                          size: 18,
-                        ),
+                        icon: const Icon(Icons.menu_book, color: Colors.white),
                         label: const Text(
-                          'Hapus',
-                          style: TextStyle(color: Colors.red),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.red),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          'Buku Catatan Penggunaan',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CatatanPenggunaanScreen(
+                                docIdBarang: widget.docId,
+                                namaKotak: namaBarang,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
+
+                    // 2. Tombol Aksi Admin (Inspeksi, Edit, Hapus)
+                    if (_canEdit || _canDelete || _canInspect) ...[
+                      const SizedBox(height: 10),
+                      if (_canInspect)
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF149C94),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.fact_check,
+                              color: Colors.white,
+                            ),
+                            label: const Text(
+                              'Lakukan Inspeksi Rutin',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            onPressed: () async {
+                              // <-- UBAH MENJADI ASYNC & AMBIL DATA TERBARU
+                              var snapshot = await FirebaseFirestore.instance
+                                  .collection('Kotak P3K')
+                                  .doc(widget.docId)
+                                  .get();
+                              var latestData = snapshot.data() ?? {};
+
+                              Map<String, dynamic> currentDefisit =
+                                  Map<String, dynamic>.from(
+                                    latestData['defisit_p3k'] ?? {},
+                                  );
+                              Map<String, dynamic> currentExpCairan =
+                                  Map<String, dynamic>.from(
+                                    latestData['kadaluarsa_cairan'] ?? {},
+                                  );
+
+                              if (!context.mounted) return;
+
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FormPemeriksaanScreen(
+                                    docIdBarang: widget.docId,
+                                    namaBarang: namaBarang,
+                                    lokasi: lokasi,
+                                    checklistItems: const [
+                                      'Kasa Steril',
+                                      'Perban (Lebar 5 cm)',
+                                      'Perban (Lebar 10 cm)',
+                                      'Plester Lebar 1,25 cm',
+                                      'Plester Cepat',
+                                      'Kapas 25 gr',
+                                      'Kain Segi Tiga (Mitela)',
+                                      'Gunting',
+                                      'Peniti',
+                                      'Sarung Tangan Sekali Pakai',
+                                      'Sarung Tangan (Pasangan)',
+                                      'Masker',
+                                      'Pinset',
+                                      'Lampu Senter',
+                                      'Gelas Cuci Mata',
+                                      'Kantong Plastik Bersih',
+                                      'Aquades',
+                                      'Povidone Iodine',
+                                      'Alkohol 70%',
+                                      'Buku Panduan P3K',
+                                      'Buku Catatan & Daftar Isi',
+                                    ],
+                                    initialDefisit: currentDefisit,
+                                    initialKadaluarsa: currentExpCairan,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          if (_canEdit)
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _showEditP3kDialog,
+                                icon: const Icon(Icons.edit, size: 18),
+                                label: const Text('Edit'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.blue.shade700,
+                                  side: BorderSide(color: Colors.blue.shade700),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (_canEdit && _canDelete) const SizedBox(width: 10),
+                          if (_canDelete)
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _hapusP3k,
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red,
+                                  size: 18,
+                                ),
+                                label: const Text(
+                                  'Hapus',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Colors.red),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
-              ],
-            ],
-          ),
-        ),
-      ),
+              ),
+            )
+          : null,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(

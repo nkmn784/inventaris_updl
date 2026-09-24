@@ -4,15 +4,19 @@ import 'tambah_barang_dinamis_screen.dart';
 import 'edit_barang_dinamis_screen.dart';
 import 'package:flutter/services.dart'; // Untuk fitur Salin (Clipboard)
 import 'package:url_launcher/url_launcher.dart'; // Untuk membuka Google Maps
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/firestore_service.dart';
 
 class DaftarBarangDinamisScreen extends StatefulWidget {
   final String namaKategori;
   final List<dynamic> skemaForm;
+  final bool isAdmin;
 
   const DaftarBarangDinamisScreen({
     super.key,
     required this.namaKategori,
     required this.skemaForm,
+    this.isAdmin = false,
   });
 
   @override
@@ -23,6 +27,9 @@ class DaftarBarangDinamisScreen extends StatefulWidget {
 class _DaftarBarangDinamisScreenState extends State<DaftarBarangDinamisScreen> {
   String _searchQuery = '';
   late Stream<QuerySnapshot> _streamBarang;
+  bool _canAdd = false;
+  bool _canEdit = false;
+  bool _canDelete = false;
 
   @override
   void initState() {
@@ -30,6 +37,46 @@ class _DaftarBarangDinamisScreenState extends State<DaftarBarangDinamisScreen> {
     _streamBarang = FirebaseFirestore.instance
         .collection(widget.namaKategori)
         .snapshots();
+    _cekPerizinan();
+  }
+
+  Future<void> _cekPerizinan() async {
+    if (widget.isAdmin) {
+      setState(() {
+        _canAdd = true;
+        _canEdit = true;
+        _canDelete = true;
+      });
+      return;
+    }
+    try {
+      var user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        var doc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists) {
+          var data = doc.data()!;
+          if (data['role'] == 'Admin') {
+            setState(() {
+              _canAdd = true;
+              _canEdit = true;
+              _canDelete = true;
+            });
+          } else {
+            var perms = data['permissions'] ?? {};
+            setState(() {
+              _canAdd = perms['can_add_item'] ?? false;
+              _canEdit = perms['can_edit_item'] ?? false;
+              _canDelete = perms['can_delete_item'] ?? false;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error: $e');
+    }
   }
 
   // --- POPUP DETAIL BARANG (DIPERBAIKI AGAR LEBIH KEMAS & PROFESIONAL) ---
@@ -367,108 +414,133 @@ class _DaftarBarangDinamisScreenState extends State<DaftarBarangDinamisScreen> {
               const Divider(height: 10),
 
               // 3. TOMBOL AKSI DI BAWAH (HAPUS & EDIT)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () async {
-                        Navigator.pop(ctx);
-                        bool? confirm = await showDialog(
-                          context: context,
-                          builder: (c) => AlertDialog(
-                            title: const Text('Hapus Data?'),
-                            content: const Text(
-                              'Tindakan ini tidak dapat dibatalkan.',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(c, false),
-                                child: const Text('Batal'),
-                              ),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
+              if (_canEdit ||
+                  _canDelete) // <-- BUNGKUS KESELURUHAN ROW DENGAN IF INI
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // TOMBOL HAPUS
+                      if (_canDelete)
+                        TextButton.icon(
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            bool? confirm = await showDialog(
+                              context: context,
+                              builder: (c) => AlertDialog(
+                                title: const Text('Hapus Data?'),
+                                content: const Text(
+                                  'Tindakan ini tidak dapat dibatalkan.',
                                 ),
-                                onPressed: () => Navigator.pop(c, true),
-                                child: const Text(
-                                  'Hapus',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-
-                        if (confirm == true) {
-                          await FirebaseFirestore.instance
-                              .collection(widget.namaKategori)
-                              .doc(docId)
-                              .delete();
-                          if (mounted)
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Data Berjaya Dihapus!'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(c, false),
+                                    child: const Text('Batal'),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                    ),
+                                    onPressed: () => Navigator.pop(c, true),
+                                    child: const Text(
+                                      'Hapus',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                ],
                               ),
                             );
-                        }
-                      },
-                      icon: const Icon(
-                        Icons.delete,
-                        color: Colors.red,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Hapus',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
 
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade700,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => EditBarangDinamisScreen(
-                              namaKategori: widget.namaKategori,
-                              documentId: docId,
-                              dataLama: data,
-                              skemaForm: widget.skemaForm,
+                            if (confirm == true) {
+                              await FirebaseFirestore.instance
+                                  .collection(widget.namaKategori)
+                                  .doc(docId)
+                                  .delete();
+
+                              // --- LOG HAPUS DINAMIS ---
+                              String namaIdentitas = 'Data';
+                              if (widget.skemaForm.isNotEmpty) {
+                                String labelPertama =
+                                    widget.skemaForm[0]['label'];
+                                namaIdentitas =
+                                    data[labelPertama]?.toString() ?? 'Data';
+                              }
+                              await FirestoreService().catatLogAktivitas(
+                                tipeAksi: 'HAPUS',
+                                kategori: widget.namaKategori,
+                                detail:
+                                    'Menghapus data $namaIdentitas dari kategori ${widget.namaKategori}',
+                              );
+                              // -------------------------
+
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Data Berhasil Dihapus!'),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(
+                            Icons.delete,
+                            color: Colors.red,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            'Hapus',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        );
-                      },
-                      icon: const Icon(
-                        Icons.edit,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Edit',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                        )
+                      else
+                        const SizedBox.shrink(), // Jika tidak ada izin hapus, isi dengan ruang kosong
+                      // TOMBOL EDIT
+                      if (_canEdit)
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade700,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditBarangDinamisScreen(
+                                  namaKategori: widget.namaKategori,
+                                  documentId: docId,
+                                  dataLama: data,
+                                  skemaForm: widget.skemaForm,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.edit,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            'Edit',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -615,22 +687,24 @@ class _DaftarBarangDinamisScreenState extends State<DaftarBarangDinamisScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.blue.shade800,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => TambahBarangDinamisScreen(
-                namaKategori: widget.namaKategori,
-                skemaForm: widget.skemaForm,
-              ),
-            ),
-          );
-        },
-      ),
+      floatingActionButton: _canAdd
+          ? FloatingActionButton(
+              backgroundColor: Colors.blue.shade800,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.add),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TambahBarangDinamisScreen(
+                      namaKategori: widget.namaKategori,
+                      skemaForm: widget.skemaForm,
+                    ),
+                  ),
+                );
+              },
+            )
+          : null,
     );
   }
 }

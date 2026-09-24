@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/penerangan_model.dart';
 import '../services/firestore_service.dart';
 import 'edit_penerangan_screen.dart';
 
 class DetailPeneranganScreen extends StatefulWidget {
   final PeneranganModel item;
+  final bool isAdmin;
 
-  const DetailPeneranganScreen({super.key, required this.item});
+  const DetailPeneranganScreen({
+    super.key,
+    required this.item,
+    this.isAdmin = false,
+  });
 
   @override
   State<DetailPeneranganScreen> createState() => _DetailPeneranganScreenState();
@@ -16,12 +22,51 @@ class DetailPeneranganScreen extends StatefulWidget {
 
 class _DetailPeneranganScreenState extends State<DetailPeneranganScreen> {
   late List<dynamic> _riwayatList;
+  bool _canEdit = false;
+  bool _canDelete = false;
 
   @override
   void initState() {
     super.initState();
     _riwayatList = List.from(widget.item.riwayatPergantian ?? []);
     _bersihkanRiwayatLamaOtomatis();
+    _cekPerizinanDetail();
+  }
+
+  Future<void> _cekPerizinanDetail() async {
+    if (widget.isAdmin) {
+      setState(() {
+        _canEdit = true;
+        _canDelete = true;
+      });
+      return;
+    }
+    try {
+      var user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        var doc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists) {
+          var data = doc.data()!;
+          if (data['role'] == 'Admin') {
+            setState(() {
+              _canEdit = true;
+              _canDelete = true;
+            });
+          } else {
+            var perms = data['permissions'] ?? {};
+            setState(() {
+              _canEdit = perms['can_edit_item'] ?? false;
+              _canDelete = perms['can_delete_item'] ?? false;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error: $e');
+    }
   }
 
   // Fungsi otomatis menghapus riwayat > 1 tahun (365 hari) dari Firestore dan memori lokal
@@ -111,6 +156,15 @@ class _DetailPeneranganScreenState extends State<DetailPeneranganScreen> {
                   'Penerangan',
                   widget.item.id!,
                 );
+
+                String gedung = widget.item.gedungRuangan ?? 'Ruangan';
+                String kode = widget.item.kodeUnik ?? '-';
+                await FirestoreService().catatLogAktivitas(
+                  tipeAksi: 'HAPUS',
+                  kategori: 'Penerangan',
+                  detail: 'Menghapus titik penerangan di $gedung ($kode)',
+                );
+
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -169,60 +223,66 @@ class _DetailPeneranganScreenState extends State<DetailPeneranganScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _konfirmasiHapus(context),
-            tooltip: 'Hapus Data',
-          ),
+          if (_canDelete)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () => _konfirmasiHapus(context),
+              tooltip: 'Hapus Data',
+            ),
         ],
       ),
       // Tombol dipindah ke bawah agar selalu menempel (sticky)
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        EditPeneranganScreen(item: widget.item),
+      bottomNavigationBar: _canEdit
+          ? Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
                   ),
-                );
-
-                if (result == true && context.mounted) {
-                  Navigator.pop(context);
-                }
-              },
-              icon: const Icon(Icons.build_circle_outlined, size: 24),
-              label: const Text(
-                'LAPORKAN & GANTI LAMPU',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ],
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange.shade700,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              child: SafeArea(
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              EditPeneranganScreen(item: widget.item),
+                        ),
+                      );
+
+                      if (result == true && context.mounted) {
+                        Navigator.pop(context);
+                      }
+                    },
+                    icon: const Icon(Icons.build_circle_outlined, size: 24),
+                    label: const Text(
+                      'LAPORKAN & GANTI LAMPU',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange.shade700,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ),
-      ),
+            )
+          : null,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
