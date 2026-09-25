@@ -638,6 +638,8 @@ class _DaftarBarangDinamisScreenState extends State<DaftarBarangDinamisScreen> {
                   itemCount: dokumen.length,
                   itemBuilder: (context, index) {
                     var data = dokumen[index].data() as Map<String, dynamic>;
+
+                    // 1. Ambil Judul & Subjudul Default
                     String judul = fieldJudul != null
                         ? (data[fieldJudul]?.toString() ?? 'Data Kosong')
                         : 'Item ${index + 1}';
@@ -645,10 +647,58 @@ class _DaftarBarangDinamisScreenState extends State<DaftarBarangDinamisScreen> {
                         ? '$fieldSubjudul: ${data[fieldSubjudul]?.toString() ?? '-'}'
                         : 'Detail...';
 
-                    // Kalau Subjudulnya adalah List (Grup Berulang), potong kalimatnya biar rapi
                     if (data[fieldSubjudul] is List) {
                       subjudul =
                           '$fieldSubjudul: ${(data[fieldSubjudul] as List).length} Item Tersimpan';
+                    }
+
+                    // 2. LOGIKA BARU: Pemindai Field Status & Jumlah
+                    String? statusValue;
+                    String? jumlahValue;
+
+                    for (var field in widget.skemaForm) {
+                      String label = field['label'].toString();
+                      String labelLower = label.toLowerCase();
+                      var nilai = data[label];
+
+                      // Abaikan Grup Berulang untuk ringkasan (agar tidak error)
+                      if (nilai is List) continue;
+
+                      // Deteksi field yang berbau "Status" atau "Kondisi"
+                      if (labelLower.contains('status') ||
+                          labelLower.contains('kondisi')) {
+                        statusValue = nilai?.toString();
+                      }
+                      // Deteksi field yang berbau "Jumlah", "Qty", atau "Stok"
+                      else if (labelLower.contains('jumlah') ||
+                          labelLower.contains('qty') ||
+                          labelLower.contains('stok')) {
+                        jumlahValue = nilai?.toString();
+                      }
+                    }
+
+                    // 3. Menentukan Warna Badge Status (Bisa disesuaikan)
+                    Color badgeColor = Colors.grey.shade200;
+                    Color textColor = Colors.grey.shade800;
+
+                    if (statusValue != null) {
+                      String statusLower = statusValue.toLowerCase();
+                      if (statusLower == 'baik' ||
+                          statusLower == 'normal' ||
+                          statusLower == 'aman' ||
+                          statusLower == 'lengkap') {
+                        badgeColor = Colors.green.shade100;
+                        textColor = Colors.green.shade800;
+                      } else if (statusLower == 'rusak' ||
+                          statusLower == 'kurang' ||
+                          statusLower == 'kritis' ||
+                          statusLower == 'hilang') {
+                        badgeColor = Colors.red.shade100;
+                        textColor = Colors.red.shade900;
+                      } else {
+                        badgeColor = Colors.orange.shade100;
+                        textColor = Colors.orange.shade900;
+                      }
                     }
 
                     return Card(
@@ -671,12 +721,54 @@ class _DaftarBarangDinamisScreenState extends State<DaftarBarangDinamisScreen> {
                             color: Color(0xFF0F3460),
                           ),
                         ),
-                        subtitle: Text(
-                          subjudul,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+
+                        // Menampilkan Subjudul dan Jumlah (Jika ada)
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(
+                              subjudul,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (jumlahValue != null &&
+                                jumlahValue.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Jumlah: $jumlahValue',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                        trailing: const Icon(Icons.chevron_right),
+
+                        // Menampilkan Badge Status di sebelah kanan
+                        trailing: statusValue != null && statusValue.isNotEmpty
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: badgeColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  statusValue,
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              )
+                            : const Icon(Icons.chevron_right),
+
                         onTap: () => _tampilkanDetail(data, dokumen[index].id),
                       ),
                     );
